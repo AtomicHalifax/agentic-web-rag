@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.2.1 (2026-10-16)
+- Models run in a Web Worker on WebGPU: no more page freezes during crawls.
+- Fetch and embed overlap; translation paths skipped; `CONFIDENT` raised 0 → 3 after measuring real rerank scores.
+
 ## 0.2.0 (2026-10-16)
 - Moved the whole pipeline into the browser (ADR 0002): transformers.js embeddings and rerank, JS BM25, an in-browser agent, and Jina Reader for fetching. Hosting is GitHub only.
 - Removed the Python API and the Hugging Face Space deploy.

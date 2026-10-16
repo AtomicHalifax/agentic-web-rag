@@ -19,6 +19,6 @@ Read ARCHITECTURE.md first, then docs/RUNBOOK.md when something is broken.
 - **Git:** commit as the no-reply address `188597710+AtomicHalifax@users.noreply.github.com` (GitHub email privacy blocks other addresses).
 
 ## Gotchas
-- **Rerank score:** it's an ms-marco logit. `agent.CONFIDENT = 0` was set by eye; tune it with evals.
+- **Rerank score:** it's an ms-marco logit. `agent.CONFIDENT = 3` (real answers score about +5..+10, near-misses about -1..+1 on fastapi docs). Tune it with evals.
 - **Jina Reader:** returns `{data:{title, content, links}}` with `Accept: application/json` and `X-With-Links-Summary: true`. Rate-limited without a key.
 - **WebGPU:** missing in Firefox stable and many phones. The UI falls back to source excerpts.

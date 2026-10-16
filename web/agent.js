@@ -5,8 +5,10 @@ import { checkUrl, sanitize } from "./guard.js";
 import { boilerplate, chunkPage } from "./chunk.js";
 import { Index } from "./search.js";
 
-export const SEED_PAGES = 8, MAX_PAGES = 30, HOP_PAGES = 3, MAX_HOPS = 2, PARALLEL = 3;
-export const CONFIDENT = 0; // ms-marco logit; >0 = reranker thinks the passage answers. Tune with evals/.
+export const SEED_PAGES = 8, MAX_PAGES = 30, HOP_PAGES = 3, MAX_HOPS = 2;
+// ms-marco logit. Measured on fastapi docs: real answers score +5..+10, near-misses -1..+1. Tune with evals/.
+export const CONFIDENT = 3;
+const LANG = /^\/[a-z]{2}(-[a-z]{2,4})?(\/|$)/i; // /de, /pt-br, /zh-hant: translations of pages we already have
 const READER = "https://r.jina.ai/";
 const SKIP = /\.(png|jpe?g|gif|svg|webp|pdf|zip|mp4|mp3|css|js|ico|xml|json)$|\/(login|signin|signup|cart|checkout|account)\b/i;
 const host = u => new URL(u).hostname.replace(/^www\./, "");
@@ -21,7 +23,7 @@ export async function fetchPage(url, fetchFn = fetch) {
     const [md, dropped] = sanitize(data.content);
     const raw = Array.isArray(data.links) ? data.links.map(l => l[1] ?? l) : Object.values(data.links || {});
     const links = [...new Set(raw.filter(l => typeof l === "string").map(l => { try { const u = new URL(l, url); u.hash = ""; return u.href.replace(/\/$/, ""); } catch { return null; } }))]
-      .filter(l => l && /^https?:/.test(l) && host(l) === host(url) && !SKIP.test(l));
+      .filter(l => l && /^https?:/.test(l) && host(l) === host(url) && !SKIP.test(l) && (LANG.test(new URL(url).pathname) || !LANG.test(new URL(l).pathname)));
     return { url, title: data.title || new URL(url).pathname, md, links, dropped };
   } catch { return null; }
 }
@@ -45,10 +47,12 @@ export class Site {
     while (batch.length < n && this.frontier.length && this.pages.size + batch.length < MAX_PAGES) {
       const u = this.frontier.shift(); if (!this.pages.has(u) && !batch.includes(u)) batch.push(u);
     }
-    for (let i = 0; i < batch.length; i += PARALLEL) {
-      const got = await Promise.all(batch.slice(i, i + PARALLEL).map(u => fetchPage(u, this.fetchFn)));
-      for (const [j, page] of got.entries()) {
-        const u = batch[i + j];
+    // All fetches start at once; each page is embedded as soon as it lands, so network and GPU overlap.
+    const inflight = new Map(batch.map(u => [u, fetchPage(u, this.fetchFn).then(page => ({ u, page }))]));
+    while (inflight.size) {
+      const { u, page } = await Promise.race(inflight.values());
+      inflight.delete(u);
+      {
         this.pages.set(u, { ok: !!page, title: page?.title || u });
         if (!page) continue;
         this.raw.push(page.md);

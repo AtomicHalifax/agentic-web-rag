@@ -60,6 +60,6 @@ test("agent re-crawls when evidence is weak", async () => {
 });
 
 test("fetchPage keeps same-site links only", async () => {
-  const f = async () => ({ ok: true, json: async () => ({ data: { title: "x", content: "y".repeat(100), links: { a: "https://ex.com/docs", b: "https://other.com/", c: "https://ex.com/logo.png", d: "/login" } } }) });
+  const f = async () => ({ ok: true, json: async () => ({ data: { title: "x", content: "y".repeat(100), links: { a: "https://ex.com/docs", b: "https://other.com/", c: "https://ex.com/logo.png", d: "/login", e: "https://ex.com/de/docs", f: "https://ex.com/pt-br" } } }) });
   assert.deepEqual((await fetchPage("https://ex.com", f)).links, ["https://ex.com/docs"]);
 });

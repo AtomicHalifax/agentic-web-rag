@@ -16,8 +16,8 @@ Everything runs in the visitor's browser. GitHub hosts it, and Jina Reader fetch
 ## Agent policy (`web/agent.js`)
 
 Small models (1.5B–3B) are unreliable planners, so the loop lives in code:
-- **Ingest:** read the homepage, rank its links by "useful" path words, read until 8 good pages, 3 in parallel.
-- **Retrieve:** search. If the top rerank score is below `CONFIDENT` (a logit of 0), re-rank the unvisited links by overlap with the question, read 3 more pages, and search again, for at most 2 hops and 30 pages total.
+- **Ingest:** read the homepage, rank its links by "useful" path words, read until 8 good pages. All fetches in a batch start at once and each page is embedded as it lands. Translation paths (`/de`, `/pt-br`) are skipped.
+- **Retrieve:** search. If the top rerank score is below `CONFIDENT` (a logit of 3), re-rank the unvisited links by overlap with the question, read 3 more pages, and search again, for at most 2 hops and 30 pages total.
 - **Generate:** the LLM writes the answer, and `rag.verify` requires a valid `[n]` on every claim. It gets one corrective retry, then abstains.
 
 ## Chunking (`web/chunk.js`)
