@@ -1,0 +1,6 @@
+{"site": "https://docs.python.org/3/", "q": "How do I run several coroutines concurrently?", "expect_url": "asyncio", "answerable": true}
+{"site": "https://docs.python.org/3/", "q": "How do I create a virtual environment?", "expect_url": "venv", "answerable": true}
+{"site": "https://docs.python.org/3/", "q": "What is the price of a Python enterprise license?", "expect_url": null, "answerable": false}
+{"site": "https://fastapi.tiangolo.com", "q": "How do I declare a path parameter?", "expect_url": "path-params", "answerable": true}
+{"site": "https://fastapi.tiangolo.com", "q": "How do I add CORS middleware?", "expect_url": "cors", "answerable": true}
+{"site": "https://fastapi.tiangolo.com", "q": "Who is the CEO of FastAPI Inc?", "expect_url": null, "answerable": false}

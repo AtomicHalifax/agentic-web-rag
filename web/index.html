@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>WebRAG: chat with any website</title>
+<meta name="description" content="Paste a link. An agent reads the site, maps it, and answers with sources. Runs on your device, no API key.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body data-view="home">
+<header class="top">
+  <a class="brand" href="./">WebRAG</a>
+  <span class="site-pill" id="sitePill" hidden></span>
+  <nav><a href="https://github.com/AtomicHalifax/agentic-web-rag">GitHub</a></nav>
+</header>
+
+<main>
+  <section class="hero" id="hero">
+    <p class="badge">Runs on your device · no API key</p>
+    <h1>Chat with any website.</h1>
+    <p class="lede">Paste a link. An agent reads the site, maps it, and answers with sources you can check.</p>
+    <form id="startForm" class="url-form">
+      <label class="sr" for="url">Website URL</label>
+      <input id="url" type="text" inputmode="url" autocomplete="url" placeholder="https://any-website.com" required>
+      <button type="submit">Start</button>
+    </form>
+    <div class="examples">
+      <span>Try</span>
+      <button type="button" data-url="https://docs.python.org/3/">docs.python.org</button>
+      <button type="button" data-url="https://paulgraham.com">paulgraham.com</button>
+      <button type="button" data-url="https://fastapi.tiangolo.com">fastapi.tiangolo.com</button>
+    </div>
+    <p class="err" id="startErr" role="alert"></p>
+  </section>
+
+  <section class="work" id="work" hidden>
+    <div class="map" id="map" aria-label="Map of pages read on this site">
+      <svg class="edges" id="edges" aria-hidden="true"></svg>
+      <ol class="steps" id="steps" aria-live="polite"></ol>
+    </div>
+    <div class="chat">
+      <div class="thread" id="thread" aria-live="polite">
+        <p class="hint" id="hint">Reading the site…</p>
+      </div>
+      <form id="askForm" class="ask">
+        <label class="sr" for="q">Ask a question</label>
+        <input id="q" type="text" placeholder="Ask anything about this site" maxlength="500" disabled>
+        <button type="submit" aria-label="Send" disabled><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 19V5M5 12l7-7 7 7"/></svg></button>
+      </form>
+      <p class="model" id="model">Model not loaded yet</p>
+    </div>
+  </section>
+</main>
+
+<aside class="drawer" id="drawer" hidden>
+  <button class="close" id="drawerClose" aria-label="Close source">×</button>
+  <p class="drawer-path" id="drawerPath"></p>
+  <div class="drawer-text" id="drawerText"></div>
+  <a id="drawerLink" target="_blank" rel="noopener">Open page ↗</a>
+</aside>
+
+<script type="module" src="app.js"></script>
+</body>
+</html>
