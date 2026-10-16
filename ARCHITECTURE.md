@@ -1,48 +1,41 @@
 # Architecture
 
-## Pieces and where they run
+Everything runs in the visitor's browser. GitHub hosts it, and Jina Reader fetches pages (browsers can't, because of CORS).
 
-| Piece | Where | Code |
-|---|---|---|
-| UI + LLM (WebLLM, Qwen2.5) | Visitor's browser, served by GitHub Pages | `web/` |
-| Crawl, chunk, index, agent | Hugging Face Space (Docker, free CPU) | `api/` |
-| Traces | New Relic via OTLP (private account) | `api/telemetry.py` |
-| Tests, evals, deploys | GitHub Actions | `.github/workflows/` |
+| Module | Job |
+|---|---|
+| `web/guard.js` | Refuse internal URLs, strip prompt injections and zero-width characters, cap question length |
+| `web/agent.js` | Fetch via Jina Reader, rank links, ingest, agentic retrieve. Code owns every decision |
+| `web/chunk.js` | Remove boilerplate, split on headings, small-to-big chunks |
+| `web/search.js` | Dense (bge-small) + BM25, RRF fusion, cross-encoder rerank. Models via transformers.js |
+| `web/rag.js` | Prompt building, citation verification, safe HTML rendering |
+| `web/app.js` | UI wiring, WebLLM generation, retry and abstain |
+| `web/map.js` | Force-directed page constellation |
+| `web/telemetry.js` | New Relic Browser page actions, numbers only |
 
-**Why the split:** browsers can't fetch arbitrary sites because of CORS, so crawling needs a server. Generation doesn't, so it runs on the visitor's GPU and costs nothing.
+## Agent policy (`web/agent.js`)
 
-## Request flow
+Small models (1.5B–3B) are unreliable planners, so the loop lives in code:
+- **Ingest:** read the homepage, rank its links by "useful" path words, read until 8 good pages, 3 in parallel.
+- **Retrieve:** search. If the top rerank score is below `CONFIDENT` (a logit of 0), re-rank the unvisited links by overlap with the question, read 3 more pages, and search again, for at most 2 hops and 30 pages total.
+- **Generate:** the LLM writes the answer, and `rag.verify` requires a valid `[n]` on every claim. It gets one corrective retry, then abstains.
 
-1. `POST /sites {url}` streams NDJSON: `session`, `step`, `page`×N, `done`. Each `page` event adds a node to the UI map.
-2. `POST /sites/{id}/retrieve {q}` streams `search` and, when it re-crawls, `step` and `page`, then a final `context` with sources, scores, hops and latency.
-3. The browser builds the prompt (`web/rag.js`), streams the answer from WebLLM, checks citations, retries once, and otherwise abstains.
+## Chunking (`web/chunk.js`)
 
-## Agent policy (`api/agent.py`)
+1. Paragraphs repeated across pages (nav, footer, cookie text) are dropped. This is learned after page 3 and again after page 8.
+2. The text is split on markdown headings. Code fences are never split, and inline links are flattened to their text.
+3. A 450-char child is embedded and searched; its parent section (≤2400 chars) is what the LLM reads. Results are deduped by parent.
+4. Each child is prefixed with `Title › H2 › H3`, which helps both BM25 and dense matching.
 
-Code makes the decisions and the model never loops on its own. This is deliberate: 1.5B–3B models are unreliable planners but fine at a single constrained step.
+## Why no server
 
-- **Ingest:** root page plus sitemap URLs ranked by "useful" path words, up to 12 good pages.
-- **Retrieve:** search. If the best rerank score is below `CONFIDENT`, rank unvisited links by overlap with the question, read 4 more pages, and search again, for at most 2 hops and 30 pages total.
+See [docs/adr/0001-browser-inference.md](docs/adr/0001-browser-inference.md) and [0002](docs/adr/0002-github-only-hosting.md).
 
-## Chunking (`api/chunk.py`)
+## Testing
 
-1. **Boilerplate:** paragraphs that repeat across pages (nav, footer, cookie text) are removed. This is learned after 3 and again after 8 pages.
-2. **Sections:** text is split on markdown headings. Code fences are never split.
-3. **Small-to-big:** a 450-char child is embedded and searched, and its parent section (≤2400 chars) is what the LLM reads. Results are deduped by parent.
-4. **Context header:** each child is prefixed with `Title › H2 › H3`, which improves both BM25 and dense matching.
-
-## Retrieval (`api/index.py`)
-
-Dense (bge-small-en-v1.5) and BM25 scores are fused with reciprocal rank fusion (k=60). The top 16 go to the MiniLM cross-encoder rerank, and the top 4 parents are returned.
-
-## Guardrails
-
-See [SECURITY.md](SECURITY.md).
+- `web/*.test.js`: fake models and fake fetch, no network, run on every push.
+- `evals/run.js`: real crawl and real models in Node (transformers.js runs there too). It gates CI on recall@4 ≥ 0.6 and abstain ≥ 0.5.
 
 ## Observability
 
-Spans: `ingest`, `retrieve`, plus FastAPI auto-instrumentation. Attributes are numbers only (`rag.pages`, `rag.chunks`, `rag.ms`, `rag.hops`, `rag.confident`, `rag.q_len`). **No question text or page content leaves the server.** Telemetry is disabled when `NEW_RELIC_LICENSE_KEY` is unset.
-
-## Decisions
-
-See `docs/adr/`.
+New Relic Browser (free tier, private to the owner) records `ingest` (pages, chunks, ms) and `answer` (retrieve and generate ms, hops, confident, abstained, question length). **Question text and page content are never sent.**

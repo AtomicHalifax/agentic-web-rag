@@ -2,18 +2,16 @@
 
 | Symptom | Likely cause | Fix |
 |---|---|---|
-| "Failed to fetch" on Start | Space asleep or down | Open the Space URL, wait for "Running". Check `/health`. |
-| CORS error in the console | `ALLOWED_ORIGINS` doesn't include the Pages origin | Set the Space variable to `https://atomichalifax.github.io` |
-| "Couldn't read any pages" | JS-only site, robots.txt disallow, or blocked bot | Try another URL. Long term: Playwright fallback in `crawl.fetch` |
-| Answers always "This site doesn't say." | `CONFIDENT` too high, or bad chunks | Run `make eval`, check top scores in the trace line, lower `agent.CONFIDENT` |
+| "Couldn't read any pages" | Jina Reader down or rate-limited, site blocks bots, or a JS-only site | Open `https://r.jina.ai/<url>` in a tab. 429 → wait a minute. If Jina is down, nothing to do but wait (upgrade path: a Cloudflare Worker fetcher) |
+| Stuck on "Loading search models" | jsDelivr or Hugging Face model download blocked or slow | Check the console network tab for failed `huggingface.co` or `cdn.jsdelivr.net` requests |
+| Answers always "This site doesn't say." | `CONFIDENT` too high, or bad chunks | `make eval`, read the top scores in the trace line, lower `agent.CONFIDENT` |
 | Model never loads | No WebGPU, or not enough GPU memory | Chrome/Edge on a laptop. Phones get the 1.5B model automatically |
-| Model loads but is slow | Integrated GPU | Expected: about 5–15 tok/s. Shown in the trace line |
-| No traces in New Relic | Secret missing or wrong region | Space secret `NEW_RELIC_LICENSE_KEY` (an ingest license key). EU accounts: set `NEW_RELIC_OTLP_ENDPOINT=https://otlp.eu01.nr-data.net:4318` |
-| Deploy job skipped the Space | `HF_SPACE` variable not set | Repo → Settings → Variables: `HF_SPACE=<user>/agentic-web-rag`, Secret `HF_TOKEN` |
-| CI eval job fails | Live site changed or the model got worse | Read the step summary table. Update `evals/golden.jsonl` if the site moved pages |
+| Slow answers | Integrated GPU | Expected: about 5–15 tok/s. Shown in the trace line |
+| Pages deploy failed | Pages source not set to GitHub Actions | Repo → Settings → Pages → Source: GitHub Actions, then re-run deploy |
+| Eval job fails | A live site moved pages, or quality dropped | Read the step summary table. Update `evals/golden.jsonl` if URLs changed |
+| No data in New Relic | Snippet missing, or an ad blocker | The Browser snippet must be in `web/index.html` `<head>`; test in a clean profile |
 
-Quick checks:
+Quick check:
 ```bash
-curl -s https://<space>.hf.space/health
-curl -sN -X POST https://<space>.hf.space/sites -H 'content-type: application/json' -d '{"url":"https://fastapi.tiangolo.com"}' | head
+curl -s -H 'Accept: application/json' 'https://r.jina.ai/https://fastapi.tiangolo.com' | head -c 300
 ```

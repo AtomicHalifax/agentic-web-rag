@@ -1,0 +1,14 @@
+{
+  "name": "agentic-web-rag",
+  "private": true,
+  "type": "module",
+  "description": "Only used by CI and evals. The website itself has no build step.",
+  "scripts": {
+    "test": "node --test web/*.test.js",
+    "eval": "node evals/run.js",
+    "dev": "python3 -m http.server 8000 -d web"
+  },
+  "devDependencies": {
+    "@huggingface/transformers": "^3.0.0"
+  }
+}

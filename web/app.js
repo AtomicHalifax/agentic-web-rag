@@ -1,25 +1,14 @@
-import { API_URL, MODEL } from "./config.js";
+import { MODEL } from "./config.js";
 import { createMap } from "./map.js";
 import { buildMessages, render, verify, NOT_FOUND } from "./rag.js";
+import { Site } from "./agent.js";
+import { checkQuestion } from "./guard.js";
+import { defaultModels } from "./search.js";
+import { track } from "./telemetry.js";
 
 const $ = id => document.getElementById(id);
 const map = createMap($("map"), $("edges"));
-let sid = null, engine = null, enginePromise = null, history = [];
-
-// ---------- streaming helper: NDJSON from the API ----------
-async function* stream(path, body) {
-  const r = await fetch(API_URL + path, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
-  if (!r.ok) throw new Error((await r.json().catch(() => ({}))).detail || `Request failed (${r.status})`);
-  const reader = r.body.pipeThrough(new TextDecoderStream()).getReader();
-  let buf = "";
-  for (;;) {
-    const { value, done } = await reader.read();
-    if (done) break;
-    buf += value;
-    let i;
-    while ((i = buf.indexOf("\n")) >= 0) { const line = buf.slice(0, i); buf = buf.slice(i + 1); if (line) yield JSON.parse(line); }
-  }
-}
+let site = null, engine = null, enginePromise = null, history = [];
 
 function step(text, live = false) {
   for (const li of $("steps").querySelectorAll(".live")) { li.classList.remove("live"); li.textContent = "✓ " + li.textContent.replace(/^● /, ""); }
@@ -30,7 +19,7 @@ function step(text, live = false) {
 }
 
 function onEvent(ev) {
-  if (ev.type === "session") { sid = ev.id; map.add(ev.root, ev.root, [], true); }
+  if (ev.type === "session") map.add(ev.root, ev.root, [], true);
   else if (ev.type === "step") step(ev.text, true);
   else if (ev.type === "page") { map.add(ev.url, ev.title, ev.links); map.highlight([ev.url], "reading"); }
   else if (ev.type === "done") { step(`${ev.pages} pages indexed`); map.highlight([], "reading"); }
@@ -61,10 +50,13 @@ async function start(url) {
   $("startErr").textContent = "";
   document.body.dataset.view = "work"; $("work").hidden = false;
   $("sitePill").hidden = false; $("sitePill").textContent = url.replace(/^https?:\/\//, "");
-  step("Connecting", true);
+  step("Loading search models", true);
   loadModel();
+  const t0 = performance.now();
   try {
-    for await (const ev of stream("/sites", { url })) onEvent(ev);
+    site = new Site(url, await defaultModels());
+    for await (const ev of site.ingest()) onEvent(ev);
+    track("ingest", { pages: site.okCount(), chunks: site.index.chunks.length, ms: Math.round(performance.now() - t0) });
     $("hint").textContent = "Ask anything about this site.";
     $("q").disabled = false; $("askForm").querySelector("button").disabled = false; $("q").focus();
   } catch (e) {
@@ -78,7 +70,8 @@ for (const b of document.querySelectorAll(".examples button")) b.addEventListene
 // ---------- ask ----------
 $("askForm").addEventListener("submit", async e => {
   e.preventDefault();
-  const q = $("q").value.trim(); if (!q || !sid) return;
+  let q; try { q = checkQuestion($("q").value); } catch { return; }
+  if (!site) return;
   $("q").value = ""; $("q").disabled = true;
   const bubble = Object.assign(document.createElement("div"), { className: "q", textContent: q });
   const ans = Object.assign(document.createElement("div"), { className: "a", textContent: "…" });
@@ -86,7 +79,7 @@ $("askForm").addEventListener("submit", async e => {
 
   try {
     let ctx;
-    for await (const ev of stream(`/sites/${sid}/retrieve`, { q })) {
+    for await (const ev of site.retrieve(q)) {
       if (ev.type === "context") ctx = ev; else onEvent(ev);
       if (ev.type === "search") { step(`Searched ${ev.urls.length} pages`, true); map.highlight(ev.urls); }
     }
@@ -113,6 +106,7 @@ $("askForm").addEventListener("submit", async e => {
       `<button class="src" data-n="${s.n}"><span>${s.n} · ${escapeHtml(s.title)}</span><span>${escapeHtml(new URL(s.url).pathname)}</span></button>`).join("")}</div>
       <div class="trace">retrieve ${ctx.ms} ms · generate ${Math.round(performance.now() - t0)} ms · ${ctx.hops} hop(s) · top score ${ctx.sources[0]?.score ?? "n/a"}</div>`);
     ans.dataset.sources = JSON.stringify(ctx.sources);
+    track("answer", { retrieveMs: ctx.ms, generateMs: Math.round(performance.now() - t0), hops: ctx.hops, confident: ctx.confident, abstained: ans.textContent.startsWith(NOT_FOUND), qLen: q.length });
   } catch (err) {
     ans.textContent = err.message;
   }

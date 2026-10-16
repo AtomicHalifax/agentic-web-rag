@@ -5,27 +5,18 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with: { python-version: "3.12", cache: pip, cache-dependency-path: api/requirements.txt }
       - uses: actions/setup-node@v4
         with: { node-version: "22" }
-      - run: pip install -r api/requirements.txt
-      - name: Python self-checks
-        working-directory: api
-        run: for f in guard chunk crawl index; do python $f.py; done
-      - name: Answer logic tests
-        run: node --test web/rag.test.js
+      - run: npm test
   eval:
-    # Real crawl + real models against live sites. Gate fails the PR if quality drops.
+    # Same pipeline the browser runs: real crawl (Jina Reader) + real models. Gate fails the build if quality drops.
     needs: test
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with: { python-version: "3.12", cache: pip, cache-dependency-path: api/requirements.txt }
-      - run: pip install -r api/requirements.txt
-      - name: Start API
-        working-directory: api
-        run: (uvicorn main:app --port 7860 &) && for i in $(seq 60); do curl -sf localhost:7860/health && break; sleep 2; done
-      - name: Run evals
-        run: python evals/run.py http://localhost:7860 | tee -a "$GITHUB_STEP_SUMMARY"
+      - uses: actions/setup-node@v4
+        with: { node-version: "22" }
+      - uses: actions/cache@v4
+        with: { path: node_modules/@huggingface/transformers/.cache, key: models-v1 }
+      - run: npm install --no-audit --no-fund
+      - run: node evals/run.js | tee -a "$GITHUB_STEP_SUMMARY"
