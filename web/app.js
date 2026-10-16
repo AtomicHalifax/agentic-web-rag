@@ -1,5 +1,6 @@
-import { MODEL } from "./config.js";
 import { createMap } from "./map.js";
+import { chat } from "./models.js";
+import { API } from "./config.js";
 import { buildMessages, render, verify, NOT_FOUND } from "./rag.js";
 import { Site } from "./agent.js";
 import { checkQuestion } from "./guard.js";
@@ -8,7 +9,7 @@ import { track } from "./telemetry.js";
 
 const $ = id => document.getElementById(id);
 const map = createMap($("map"), $("edges"));
-let site = null, engine = null, enginePromise = null, history = [];
+let site = null, history = [];
 
 function step(text, live = false) {
   for (const li of $("steps").querySelectorAll(".live")) { li.classList.remove("live"); li.textContent = "✓ " + li.textContent.replace(/^● /, ""); }
@@ -26,32 +27,9 @@ function onEvent(ev) {
   else if (ev.type === "error") throw new Error(ev.text);
 }
 
-// ---------- in-browser LLM ----------
-function loadModel() {
-  if (enginePromise) return enginePromise;
-  if (!navigator.gpu) { $("model").textContent = "This browser has no WebGPU. Try Chrome or Edge on a laptop."; return (enginePromise = Promise.resolve(null)); }
-  $("model").innerHTML = `Loading ${MODEL.split("-q")[0]} on your device… <span class="bar"><i id="mbar" style="width:0"></i></span>`;
-  enginePromise = import("https://cdn.jsdelivr.net/npm/@mlc-ai/web-llm@0.2/+esm").then(({ CreateMLCEngine }) =>
-    CreateMLCEngine(MODEL, { initProgressCallback: p => { const b = $("mbar"); if (b) b.style.width = `${Math.round(p.progress * 100)}%`; } })
-  ).then(e => { engine = e; $("model").textContent = `${MODEL.split("-q")[0]} · on-device · no API key`; return e; })
-   .catch(err => { $("model").textContent = "Couldn't load the model: " + err.message; return null; });
-  return enginePromise;
-}
-
-async function generate(messages, onToken) {
-  let out = "";
-  const chunks = await engine.chat.completions.create({ messages, stream: true, temperature: 0.2, max_tokens: 320 });
-  for await (const c of chunks) { out += c.choices[0]?.delta?.content || ""; onToken(out); }
-  return out;
-}
-
-// ---------- warm up: start the downloads the moment someone shows intent, not after they click Start ----------
+// ---------- models run on Cloudflare; warming just wakes the Worker so the first real call is fast ----------
 let warm = null;
-function warmUp() {
-  warm ??= defaultModels().then(async m => { await m.embed(["warm up"]); return m; });
-  loadModel();
-  return warm;
-}
+const warmUp = () => (warm ??= defaultModels().then(async m => { m.embed(["warm up"]).catch(() => {}); return m; }));
 for (const ev of ["focus", "input"]) $("url").addEventListener(ev, warmUp, { once: true });
 for (const b of document.querySelectorAll(".examples button")) b.addEventListener("pointerenter", warmUp, { once: true });
 
@@ -64,6 +42,7 @@ function unlockChat() {
 // ---------- start: chat unlocks after the homepage; the rest of the crawl keeps going in the background ----------
 async function start(url) {
   $("startErr").textContent = "";
+  if (!API) { $("startErr").textContent = "The AI backend isn't deployed yet. See docs/SETUP.md."; return; }
   let s;
   try { s = new Site(url, null); } catch (e) { $("startErr").textContent = e.message; return; }
   document.body.dataset.view = "work"; $("work").hidden = false;
@@ -118,24 +97,23 @@ $("askForm").addEventListener("submit", async e => {
     scrollDown();
 
     const t0 = performance.now();
-    status(engine ? "Writing the answer" : "Finishing the model download");
-    if (!(await loadModel())) {
-      body.innerHTML = render(ctx.sources.slice(0, 2).map(s => `${s.text.slice(0, 280)}… [${s.n}]`).join("\n\n"));
-    } else {
-      status("Writing the answer");
-      const msgs = buildMessages(q, ctx.sources, history);
-      const show = t => { if (t) { ans.classList.add("streaming"); body.innerHTML = render(t); } };
-      let out = await generate(msgs, show);
+    status("Writing the answer");
+    const msgs = buildMessages(q, ctx.sources, history);
+    const show = t => { ans.classList.add("streaming"); body.innerHTML = render(t); };
+    try {
+      let out = await chat(msgs, show);
       let check = verify(out, ctx.sources.length);
       if (!check.ok) { // one corrective retry, then abstain rather than show uncited claims
         status("Double-checking citations"); ans.classList.remove("streaming");
-        out = await generate([...msgs, { role: "assistant", content: out }, { role: "user", content: "Rewrite: every sentence must end with a source number like [1]. If the sources don't say, reply exactly: " + NOT_FOUND }], show);
+        out = await chat([...msgs, { role: "assistant", content: out }, { role: "user", content: "Rewrite: every sentence must end with a source number like [1]. If the sources don't say, reply exactly: " + NOT_FOUND }], show);
         check = verify(out, ctx.sources.length);
         if (!check.ok) out = NOT_FOUND;
       }
       body.innerHTML = render(out);
       history.push({ role: "user", content: q }, { role: "assistant", content: out });
       if (check.cited?.length) map.highlight(ctx.sources.filter(s => check.cited.includes(s.n)).map(s => s.url));
+    } catch (err) { // e.g. daily free quota used up: still show the best passages
+      body.innerHTML = `<p class="note">${escapeHtml(err.message)} Here's what the site says:</p>` + render(ctx.sources.slice(0, 2).map(s => `${s.text.slice(0, 280)}… [${s.n}]`).join("\n\n"));
     }
     ans.insertAdjacentHTML("beforeend", `<div class="trace">retrieve ${ctx.ms} ms · generate ${Math.round(performance.now() - t0)} ms · ${ctx.hops} hop(s) · top score ${ctx.sources[0]?.score ?? "n/a"}</div>`);
     track("answer", { retrieveMs: ctx.ms, generateMs: Math.round(performance.now() - t0), hops: ctx.hops, confident: ctx.confident, abstained: body.textContent.startsWith(NOT_FOUND), qLen: q.length });

@@ -4,7 +4,7 @@
   "type": "module",
   "description": "Only used by CI and evals. The website itself has no build step.",
   "scripts": {
-    "test": "node --test web/*.test.js",
+    "test": "node --test web/*.test.js worker/*.test.js",
     "eval": "node evals/run.js",
     "dev": "python3 -m http.server 8000 -d web"
   },

@@ -1,11 +1,11 @@
 // Hybrid index in the browser: dense (bge-small) + BM25, fused with RRF, then cross-encoder rerank.
-// Models (transformers.js) live in models.js: a Web Worker in the browser, direct in Node.
-import { loadModels, workerModels } from "./models.js";
+// Models live in models.js: Cloudflare Workers AI in the browser, local transformers.js in Node evals.
+import { loadModels, remoteModels } from "./models.js";
 export const tok = s => s.toLowerCase().match(/[a-z0-9]+/g) || [];
 
 let _models;
 export function defaultModels() {
-  return (_models ??= typeof window === "undefined" ? loadModels("@huggingface/transformers") : Promise.resolve(workerModels()));
+  return (_models ??= typeof window === "undefined" ? loadModels("@huggingface/transformers") : Promise.resolve(remoteModels()));
 }
 
 class BM25 {

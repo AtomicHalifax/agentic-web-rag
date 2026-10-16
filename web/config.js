@@ -1,4 +1,2 @@
-// Runs in the visitor's browser via WebGPU. Smaller model on phones.
-export const MODEL = matchMedia("(max-width: 720px)").matches
-  ? "Qwen2.5-1.5B-Instruct-q4f16_1-MLC"
-  : "Qwen2.5-3B-Instruct-q4f16_1-MLC";
+// URL of the Cloudflare Worker. The deploy workflow rewrites this line with the real workers.dev URL.
+export const API = typeof location !== "undefined" && location.hostname === "localhost" ? "http://localhost:8787" : "";

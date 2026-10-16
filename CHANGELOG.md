@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.4.0 (2026-10-16)
+- Models moved to Cloudflare Workers AI behind a thin Worker (ADR 0003): in-browser models crashed Chrome on a real laptop. No downloads, a bigger LLM (Llama 3.1 8B), and a first answer in seconds.
+- One deploy workflow ships the Worker and then Pages, wiring the Worker URL in automatically.
+- When the quota is exhausted, the UI falls back to source passages. 19 tests, including the Worker's validation and origin lock.
+
 ## 0.3.0 (2026-10-16)
 - Speed: models start downloading when you focus the URL box; chat unlocks after the homepage while the crawl continues in the background.
 - Answer UX: status shimmer, sources slide in first, streaming caret; input stays usable while an answer streams.

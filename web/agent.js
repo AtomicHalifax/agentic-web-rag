@@ -40,6 +40,7 @@ export class Site {
     this.root = checkUrl(root); this.index = new Index(models); this.fetchFn = fetchFn;
     this.pages = new Map(); this.frontier = [this.root]; this.raw = []; this.drop = new Set();
   }
+  bar() { return this.index.m?.confident ?? CONFIDENT; }
   okCount() { return [...this.pages.values()].filter(p => p.ok).length; }
 
   async *_read(n) {
@@ -79,7 +80,7 @@ export class Site {
     const t0 = performance.now();
     let hits = await this.index.search(q), hop = 0;
     yield { type: "search", hop, best: hits[0]?.score ?? null, urls: [...new Set(hits.map(h => h.chunk.url))] };
-    while ((!hits.length || hits[0].score < CONFIDENT) && this.frontier.length && hop < MAX_HOPS && this.pages.size < MAX_PAGES) {
+    while ((!hits.length || hits[0].score < this.bar()) && this.frontier.length && hop < MAX_HOPS && this.pages.size < MAX_PAGES) {
       hop++;
       this.frontier = rank(this.frontier, q);
       yield { type: "step", text: "Not enough on indexed pages, reading more" };
@@ -89,7 +90,7 @@ export class Site {
     }
     yield {
       type: "context", hops: hop, ms: Math.round(performance.now() - t0),
-      confident: !!hits.length && hits[0].score >= CONFIDENT,
+      confident: !!hits.length && hits[0].score >= this.bar(),
       sources: hits.map(({ chunk: c, score }, i) => ({ n: i + 1, url: c.url, title: c.title, path: c.path, text: c.parent, score: +score.toFixed(2) })),
     };
   }

@@ -102,3 +102,4 @@ body[data-view="work"] .hero { display: none; }
 
 @media (max-width: 720px) { .work { padding: 8px 16px 16px; } .map { min-height: 340px; } .top { padding: 14px 16px; } }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
+.note { color: var(--muted); font-size: 14px; }

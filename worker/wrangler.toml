@@ -1,0 +1,9 @@
+name = "agentic-web-rag"
+main = "index.js"
+compatibility_date = "2026-10-01"
+
+[ai]
+binding = "AI"
+
+[vars]
+ALLOWED_ORIGINS = "https://atomichalifax.github.io,http://localhost:8000"
