@@ -1,21 +1,11 @@
 // Hybrid index in the browser: dense (bge-small) + BM25, fused with RRF, then cross-encoder rerank.
-// Models run via transformers.js (WASM/WebGPU) — same models the old Python API used.
-const TRANSFORMERS = typeof window === "undefined" ? "@huggingface/transformers" : "https://cdn.jsdelivr.net/npm/@huggingface/transformers@3/+esm";
+// Models (transformers.js) live in models.js: a Web Worker in the browser, direct in Node.
+import { loadModels, workerModels } from "./models.js";
 export const tok = s => s.toLowerCase().match(/[a-z0-9]+/g) || [];
 
-let _embed, _rerank;
-export async function defaultModels() {
-  const T = await import(TRANSFORMERS);
-  _embed ??= await T.pipeline("feature-extraction", "Xenova/bge-small-en-v1.5", { dtype: "q8" });
-  if (!_rerank) {
-    const id = "Xenova/ms-marco-MiniLM-L-6-v2";
-    const [tk, m] = await Promise.all([T.AutoTokenizer.from_pretrained(id), T.AutoModelForSequenceClassification.from_pretrained(id, { dtype: "q8" })]);
-    _rerank = async (q, docs) => (await m(tk(new Array(docs.length).fill(q), { text_pair: docs, padding: true, truncation: true }))).logits.tolist().map(r => r[0]);
-  }
-  return {
-    embed: async xs => (await _embed(xs, { pooling: "cls", normalize: true })).tolist(),
-    rerank: _rerank,
-  };
+let _models;
+export function defaultModels() {
+  return (_models ??= typeof window === "undefined" ? loadModels("@huggingface/transformers") : Promise.resolve(workerModels()));
 }
 
 class BM25 {
