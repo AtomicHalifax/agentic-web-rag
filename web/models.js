@@ -12,11 +12,6 @@ async function post(path, body) {
 export function remoteModels() {
   return {
     confident: 0.3, // bge-reranker sigmoid. Tune with evals.
-    embed: async texts => {
-      const out = [];
-      for (let i = 0; i < texts.length; i += 64) out.push(...(await (await post("/embed", { texts: texts.slice(i, i + 64) })).json()).vectors);
-      return out.map(v => { const n = Math.hypot(...v) || 1; return v.map(x => x / n); }); // dot product = cosine
-    },
     rerank: async (query, docs) => (await (await post("/rerank", { query, docs: docs.slice(0, 32) })).json()).scores,
   };
 }
@@ -42,14 +37,12 @@ export async function chat(messages, onText) {
 export async function loadModels(from) {
   const T = await import(from);
   const id = "Xenova/ms-marco-MiniLM-L-6-v2";
-  const [embedder, tk, ce] = await Promise.all([
-    T.pipeline("feature-extraction", "Xenova/bge-small-en-v1.5", { dtype: "q8" }),
+  const [tk, ce] = await Promise.all([
     T.AutoTokenizer.from_pretrained(id),
     T.AutoModelForSequenceClassification.from_pretrained(id, { dtype: "q8" }),
   ]);
   return {
     confident: 3,
-    embed: async xs => (await embedder(xs, { pooling: "cls", normalize: true })).tolist(),
     rerank: async (q, docs) => (await ce(tk(new Array(docs.length).fill(q), { text_pair: docs, padding: true, truncation: true }))).logits.tolist().map(r => r[0]),
   };
 }

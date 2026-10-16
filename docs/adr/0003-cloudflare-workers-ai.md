@@ -15,6 +15,6 @@
 **Consequences.**
 - No device load, nothing to download, and a first answer in seconds.
 - A bigger LLM (8B vs 1.5–3B) gives better answers and fewer abstentions.
-- A daily quota applies (roughly 30 site crawls plus hundreds of questions a day). When it's hit, the UI shows the top source passages instead of failing.
+- A daily quota applies (see ADR 0004: after embeddings were removed, crawling costs nothing and questions cost about 17 neurons each). When it's hit, the UI shows the top source passages instead of failing.
 - Questions and page chunks now pass through Cloudflare; they are not logged or stored by our code.
 - Node evals keep using local transformers.js models (ms-marco reranker, logit scale). Each model set carries its own `confident` threshold.

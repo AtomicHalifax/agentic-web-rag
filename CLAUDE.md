@@ -4,7 +4,7 @@ Read ARCHITECTURE.md first, then docs/RUNBOOK.md when something is broken.
 
 ## Layout
 - `web/`: the app. **No build step**: plain ES modules served as-is by GitHub Pages. Models are called through `web/models.js`: the Worker in the browser, local transformers.js in Node evals.
-- `worker/`: the Cloudflare Worker (`/embed`, `/rerank`, `/chat` on Workers AI). Deployed by `deploy.yml`, which also writes its URL into `web/config.js`.
+- `worker/`: the Cloudflare Worker (`/rerank`, `/chat` on Workers AI; no embeddings, see ADR 0004). Deployed by `deploy.yml`, which also writes its URL into `web/config.js`.
 - `web/*.test.js`: node:test, fake models and fetch, no network.
 - `evals/`: `golden.jsonl` plus `run.js` (the same modules, real models). CI gate: recall@4 ≥ 0.6, abstain ≥ 0.5.
 - The Worker is the only server. Keep it thin; anything bigger needs an ADR. Setup: docs/SETUP.md.

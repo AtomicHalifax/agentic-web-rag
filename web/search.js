@@ -1,4 +1,4 @@
-// Hybrid index in the browser: dense (bge-small) + BM25, fused with RRF, then cross-encoder rerank.
+// Index in the browser: BM25 recall, then cross-encoder rerank (on Cloudflare in prod).
 // Models live in models.js: Cloudflare Workers AI in the browser, local transformers.js in Node evals.
 import { loadModels, remoteModels } from "./models.js";
 export const tok = s => s.toLowerCase().match(/[a-z0-9]+/g) || [];
@@ -26,25 +26,22 @@ class BM25 {
   }
 }
 
-const rrf = xs => { const r = new Array(xs.length); xs.map((v, i) => [v, i]).sort((a, b) => b[0] - a[0]).forEach(([, i], rank) => (r[i] = 1 / (60 + rank))); return r; };
-const dot = (a, b) => a.reduce((s, v, i) => s + v * b[i], 0);
-
+// No embeddings: BM25 recalls a wide pool for free, the cross-encoder reranks it semantically.
+// Indexing is now instant (no model calls while crawling); the model runs once per question.
+// ponytail: pure-synonym queries (no shared words) can miss; add dense recall back if evals show it.
 export class Index {
-  constructor(models) { this.m = models; this.chunks = []; this.vecs = []; this.bm25 = null; }
+  constructor(models) { this.m = models; this.chunks = []; this.bm25 = null; }
 
   async add(chunks) {
     if (!chunks.length) return;
-    for (let i = 0; i < chunks.length; i += 32) this.vecs.push(...(await this.m.embed(chunks.slice(i, i + 32).map(c => c.text))));
     this.chunks.push(...chunks);
     this.bm25 = new BM25(this.chunks.map(c => c.text)); // ponytail: full rebuild, fine below ~10k chunks
   }
 
   /** [{chunk, score}] best first, one per parent section. */
-  async search(q, k = 4, pool = 16) {
+  async search(q, k = 4, pool = 24) {
     if (!this.chunks.length) return [];
-    const [qv] = await this.m.embed([q]);
-    const dense = rrf(this.vecs.map(v => dot(v, qv))), sparse = rrf(this.bm25.scores(q));
-    const cand = dense.map((d, i) => [d + sparse[i], i]).sort((a, b) => b[0] - a[0]).slice(0, pool).map(([, i]) => this.chunks[i]);
+    const cand = this.bm25.scores(q).map((s, i) => [s, i]).sort((a, b) => b[0] - a[0]).slice(0, pool).map(([, i]) => this.chunks[i]);
     const scores = await this.m.rerank(q, cand.map(c => c.text));
     const out = [], seen = new Set();
     for (const i of scores.map((s, i) => i).sort((a, b) => scores[b] - scores[a])) {

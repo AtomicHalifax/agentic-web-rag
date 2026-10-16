@@ -27,9 +27,8 @@ function onEvent(ev) {
   else if (ev.type === "error") throw new Error(ev.text);
 }
 
-// ---------- models run on Cloudflare; warming just wakes the Worker so the first real call is fast ----------
-let warm = null;
-const warmUp = () => (warm ??= defaultModels().then(async m => { m.embed(["warm up"]).catch(() => {}); return m; }));
+// ---------- models run on Cloudflare; nothing to download ----------
+const warmUp = () => defaultModels();
 for (const ev of ["focus", "input"]) $("url").addEventListener(ev, warmUp, { once: true });
 for (const b of document.querySelectorAll(".examples button")) b.addEventListener("pointerenter", warmUp, { once: true });
 

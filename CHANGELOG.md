@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.5.0 (2026-10-16)
+- Removed embeddings (ADR 0004). BM25 recalls the top 24 and the cross-encoder reranks them. Indexing makes zero model calls, so it's as fast as the downloads. Each question costs about 17 free-tier neurons, about 580 a day.
+
 ## 0.4.0 (2026-10-16)
 - Models moved to Cloudflare Workers AI behind a thin Worker (ADR 0003): in-browser models crashed Chrome on a real laptop. No downloads, a bigger LLM (Llama 3.1 8B), and a first answer in seconds.
 - One deploy workflow ships the Worker and then Pages, wiring the Worker URL in automatically.

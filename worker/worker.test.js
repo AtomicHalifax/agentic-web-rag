@@ -14,9 +14,8 @@ test("rerank returns scores in doc order, squashed to 0..1", async () => {
   const { scores } = await routes.rerank(fakeAI, { query: "q", docs: ["a", "b", "c"] });
   assert.equal(scores.length, 3); assert.ok(scores[1] > 0.9 && scores[0] < 0.1);
 });
-test("embed validates input", async () => {
-  assert.equal((await (await call("embed", { texts: ["x", "y"] })).json()).vectors.length, 2);
-  assert.equal((await call("embed", { texts: [] })).status, 400);
+test("rerank validates input", async () => {
+  assert.equal((await call("rerank", { query: "q", docs: [] })).status, 400);
 });
 test("chat streams SSE and rejects odd roles", async () => {
   const r = await call("chat", { messages: [{ role: "user", content: "hi" }] });
@@ -24,5 +23,5 @@ test("chat streams SSE and rejects odd roles", async () => {
   assert.equal((await call("chat", { messages: [{ role: "tool", content: "x" }] })).status, 400);
 });
 test("other origins are refused", async () => {
-  assert.equal((await call("embed", { texts: ["x"] }, "https://evil.example")).status, 403);
+  assert.equal((await call("rerank", { query: "q", docs: ["x"] }, "https://evil.example")).status, 403);
 });

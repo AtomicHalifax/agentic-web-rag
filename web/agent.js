@@ -48,7 +48,7 @@ export class Site {
     while (batch.length < n && this.frontier.length && this.pages.size + batch.length < MAX_PAGES) {
       const u = this.frontier.shift(); if (!this.pages.has(u) && !batch.includes(u)) batch.push(u);
     }
-    // All fetches start at once; each page is embedded as soon as it lands, so network and GPU overlap.
+    // All fetches start at once; each page is indexed as soon as it lands.
     const inflight = new Map(batch.map(u => [u, fetchPage(u, this.fetchFn).then(page => ({ u, page }))]));
     while (inflight.size) {
       const { u, page } = await Promise.race(inflight.values());
