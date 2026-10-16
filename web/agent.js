@@ -1,7 +1,7 @@
 // The agent. Code makes the decisions (budgets, retries, stop rules); models only do narrow steps.
 // ingest():   root -> links -> seed pages -> index, yielding each page so the UI can draw the map
 // retrieve(): search -> if evidence is weak, read the most relevant unvisited pages -> search again -> stop
-import { checkUrl, sanitize } from "./guard.js";
+import { checkUrl, norm, sanitize } from "./guard.js";
 import { boilerplate, chunkPage } from "./chunk.js";
 import { Index } from "./search.js";
 
@@ -22,7 +22,7 @@ export async function fetchPage(url, fetchFn = fetch) {
     if (!data?.content || data.content.length < 80) return null;
     const [md, dropped] = sanitize(data.content);
     const raw = Array.isArray(data.links) ? data.links.map(l => l[1] ?? l) : Object.values(data.links || {});
-    const links = [...new Set(raw.filter(l => typeof l === "string").map(l => { try { const u = new URL(l, url); u.hash = ""; return u.href.replace(/\/$/, ""); } catch { return null; } }))]
+    const links = [...new Set(raw.filter(l => typeof l === "string").map(l => { try { return norm(new URL(l, url).href); } catch { return null; } }))]
       .filter(l => l && /^https?:/.test(l) && host(l) === host(url) && !SKIP.test(l) && (LANG.test(new URL(url).pathname) || !LANG.test(new URL(l).pathname)));
     return { url, title: data.title || new URL(url).pathname, md, links, dropped };
   } catch { return null; }

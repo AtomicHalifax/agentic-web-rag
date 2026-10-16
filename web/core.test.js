@@ -63,3 +63,13 @@ test("fetchPage keeps same-site links only", async () => {
   const f = async () => ({ ok: true, json: async () => ({ data: { title: "x", content: "y".repeat(100), links: { a: "https://ex.com/docs", b: "https://other.com/", c: "https://ex.com/logo.png", d: "/login", e: "https://ex.com/de/docs", f: "https://ex.com/pt-br" } } }) });
   assert.deepEqual((await fetchPage("https://ex.com", f)).links, ["https://ex.com/docs"]);
 });
+
+test("one page = one key (no www, query, slash dupes)", async () => {
+  const { norm } = await import("./guard.js");
+  assert.equal(norm("https://www.x.org/privacy/?lang=en#top"), norm("https://x.org/privacy"));
+});
+
+test("login-walled sites get a clear refusal", () => {
+  for (const u of ["https://x.com", "https://www.instagram.com/foo", "linkedin.com/in/someone"])
+    assert.throws(() => checkUrl(u), /login/, u);
+});

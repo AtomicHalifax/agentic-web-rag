@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.3.0 (2026-10-16)
+- Speed: models start downloading when you focus the URL box; chat unlocks after the homepage while the crawl continues in the background.
+- Answer UX: status shimmer, sources slide in first, streaming caret; input stays usable while an answer streams.
+- One node per page: URLs normalized (no www, query, trailing slash). Login-walled sites (X, Instagram, LinkedIn…) refused with a clear message.
+- LLM context trimmed to 1200 chars per source for faster first token.
+
 ## 0.2.1 (2026-10-16)
 - Models run in a Web Worker on WebGPU: no more page freezes during crawls.
 - Fetch and embed overlap; translation paths skipped; `CONFIDENT` raised 0 → 3 after measuring real rerank scores.

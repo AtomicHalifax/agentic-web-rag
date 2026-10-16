@@ -11,7 +11,7 @@ Rules:
 export const NOT_FOUND = "This site doesn't say.";
 
 export function buildMessages(q, sources, history = []) {
-  const ctx = sources.map(s => `<source n="${s.n}" page="${s.path}">\n${s.text.slice(0, 2000)}\n</source>`).join("\n\n");
+  const ctx = sources.map(s => `<source n="${s.n}" page="${s.path}">\n${s.text.slice(0, 1200)}\n</source>`).join("\n\n");
   return [
     { role: "system", content: SYSTEM },
     ...history.slice(-4),
