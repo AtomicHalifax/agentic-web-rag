@@ -11,14 +11,16 @@ jobs:
     outputs: { url: "${{ steps.w.outputs.deployment-url }}" }
     steps:
       - uses: actions/checkout@v4
+      - id: has
+        env: { T: "${{ secrets.CLOUDFLARE_API_TOKEN }}" }
+        run: echo "cf=$([ -n "$T" ] && echo yes || echo no)" >> "$GITHUB_OUTPUT"
       - id: w
-        if: ${{ env.HAS_CF == 'true' }}
+        if: steps.has.outputs.cf == 'yes'
         uses: cloudflare/wrangler-action@v3
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           workingDirectory: worker
-    env: { HAS_CF: "${{ secrets.CLOUDFLARE_API_TOKEN != '' }}" }
   pages:
     needs: worker
     runs-on: ubuntu-latest
