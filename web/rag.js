@@ -55,7 +55,11 @@ export function attribute(answer, sources, minShare = 0.5) {
     if (share >= minShare) { cited.add(n); return s.replace(/([.!?:])?\s*$/, ` [${n}]$1`); }
     dropped++; return "";
   };
-  const text = a.split("\n").map(line => line.split(/(?<=[.!?])\s+(?=[A-Z`])/).map(fix).filter(Boolean).join(" ")).join("\n").replace(/\n{3,}/g, "\n\n").trim();
+  let fence = false; // code blocks are shown as-is, never annotated line by line
+  const text = a.split("\n").map(line => {
+    if (line.trim().startsWith("```")) { fence = !fence; return line; }
+    return fence ? line : line.split(/(?<=[.!?])\s+(?=[A-Z`])/).map(fix).filter(Boolean).join(" ");
+  }).join("\n").replace(/\n{3,}/g, "\n\n").trim();
   return cited.size ? { text, cited: [...cited], dropped } : { text: NOT_FOUND, cited: [], dropped };
 }
 

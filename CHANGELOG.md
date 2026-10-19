@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.8.1 (2026-10-19)
+- Code blocks in answers are no longer annotated with a citation on every line.
+
 ## 0.8.0 (2026-10-19)
 - The answer model moved to Pollinations (gpt-oss-20b, keyless, streamed; ADR 0006). WebLLM is removed: it still crashed Chrome on a real laptop. The visitor's device now does no ML, the first token arrives in about 1 s, and it's still GitHub Pages only.
 

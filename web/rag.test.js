@@ -35,3 +35,8 @@ test("attribute keeps valid citations and strips phantom ones", () => {
   assert.equal(attribute("Use CORSMiddleware [1].", SRC).text, "Use CORSMiddleware [1].");
   assert.ok(!attribute("Middleware works with every request [9].", SRC).text.includes("[9]"));
 });
+
+test("attribute leaves code blocks untouched", () => {
+  const r = attribute("Import CORSMiddleware from fastapi.middleware.cors.\n```python\napp.add_middleware(CORSMiddleware)\n```", SRC);
+  assert.ok(r.text.includes("```python\napp.add_middleware(CORSMiddleware)\n```")); assert.deepEqual(r.cited, [1]);
+});
