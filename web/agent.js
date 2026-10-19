@@ -61,9 +61,12 @@ export function rank(frontier, hint, anchors) {
 export class Site {
   constructor(root, _unused, fetchFn = fetch) {
     this.root = checkUrl(root); this.index = new Index(); this.fetchFn = fetchFn;
-    this.pages = new Map(); this.anchors = new Map(); this.frontier = [this.root]; this.raw = []; this.drop = new Set();
+    this.pages = new Map(); this.anchors = new Map(); this.frontier = [this.root];
+    // Stay inside the path you pasted: docs.python.org/3 must not wander into /2.7, /3.4… copies of the same docs.
+    this.scope = new URL(this.root).pathname.replace(/\/(index\.html?)?$/, ""); this.raw = []; this.drop = new Set();
   }
   bar() { return CONFIDENT; }
+  inScope(u) { const p = new URL(u).pathname; return !this.scope || p === this.scope || p.startsWith(this.scope + "/"); }
   okCount() { return [...this.pages.values()].filter(p => p.ok).length; }
 
   async *_read(n) {
@@ -83,7 +86,7 @@ export class Site {
         if (this.raw.length === 3 || this.raw.length === 8) this.drop = boilerplate(this.raw); // learn nav/footer once there's evidence
         await this.index.add(chunkPage(page.md, u, page.title, this.drop));
         for (const [l, t] of page.anchors) this.anchors.set(l, `${this.anchors.get(l) || ""} ${t}`.slice(0, 300));
-        this.frontier.push(...page.links.filter(l => !this.pages.has(l) && !this.frontier.includes(l)));
+        this.frontier.push(...page.links.filter(l => this.inScope(l) && !this.pages.has(l) && !this.frontier.includes(l)));
         yield { type: "page", url: u, title: page.title, links: page.links.filter(l => this.pages.has(l)).slice(0, 8), chunks: this.index.chunks.length, injectionsRemoved: page.dropped };
       }
     }

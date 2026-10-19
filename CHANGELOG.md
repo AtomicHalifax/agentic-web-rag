@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.6.3 (2026-10-19)
+- The crawl stays inside the pasted path (`docs.python.org/3` no longer reads `/2.7`, `/3.4`… copies), and http and https count as one page. Found by the eval on Python docs.
+
 ## 0.6.2 (2026-10-19)
 - The agent ranks unread links by URL path **and anchor text** (from Jina's link summary), weighting rare words higher, so "virtual environment" finds `/venv` and "CORS middleware" prefers `/cors`.
 

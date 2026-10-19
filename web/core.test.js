@@ -104,3 +104,12 @@ test("links are ranked by anchor text, rare words first", async () => {
   assert.equal(rank([...anchors.keys()], "How do I create a virtual environment?", anchors)[0], "https://d.org/library/venv");
   assert.equal(rank([...anchors.keys()], "How do I add CORS middleware?", anchors)[0], "https://d.org/tutorial/cors");
 });
+
+test("crawl stays inside the pasted path; http and https are one page", async () => {
+  const { norm } = await import("./guard.js");
+  assert.equal(norm("http://docs.python.org/3.3/"), norm("https://docs.python.org/3.3"));
+  const s = new Site("https://docs.python.org/3/", null, async () => ({ ok: false }));
+  assert.ok(s.inScope("https://docs.python.org/3/library/venv.html"));
+  assert.ok(!s.inScope("https://docs.python.org/3.4"));
+  assert.ok(new Site("https://ex.com", null).inScope("https://ex.com/anything"));
+});

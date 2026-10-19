@@ -9,7 +9,7 @@ const WALLED = /(^|\.)(x|twitter|instagram|facebook|linkedin|tiktok|threads|redd
 
 /** One key per page: no www, no query/hash, no trailing slash. Stops /privacy and /privacy?lang=en becoming two nodes. */
 export function norm(u) {
-  const x = new URL(u); x.hash = ""; x.search = ""; x.hostname = x.hostname.replace(/^www\./, "");
+  const x = new URL(u); x.hash = ""; x.search = ""; x.protocol = "https:"; x.hostname = x.hostname.replace(/^www\./, "");
   return x.href.replace(/\/$/, "");
 }
 
