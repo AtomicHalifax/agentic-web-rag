@@ -9,7 +9,7 @@ Every website is untrusted input.
 | Page text | Prompt injection ("ignore previous instructions…"), zero-width tricks | Invisible characters stripped, instruction-like lines dropped and counted | `guard.sanitize` |
 | Prompt | Injection that survives sanitizing | Sources fenced in `<source>` tags; the system prompt says they are data | `rag.buildMessages` |
 | Model output | XSS via generated HTML | Escaped first; only `code`, bullets and citation buttons allowed | `rag.render` |
-| Model output | Hallucination | Every claim must cite an existing source; one retry, then abstain | `rag.verify` |
+| Model output | Hallucination | Each sentence must be supported by a source (≥ half its key words), or it's dropped; nothing supported means abstain. Phantom citations are stripped | `rag.attribute` |
 | Telemetry | Leaking user data | Numbers only, never question or page text | `telemetry.js` |
 
 **Trust note:** page URLs go to Jina Reader so it can fetch them. Questions and answers never leave the browser: the model runs locally, and there are no secrets to leak.

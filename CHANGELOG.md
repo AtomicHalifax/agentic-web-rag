@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.7.0 (2026-10-19)
+- Live test: the first word took about 30 s, and small models often skip `[n]`, which forced a second full pass. Now the prompt carries 3 sources × 700 chars, and `rag.attribute` grounds the answer in code (cite the supporting source, drop unsupported sentences, abstain if none). The retry is removed.
+
 ## 0.6.5 (2026-10-19)
 - Fixed: pasting a URL with a trailing slash (`docs.python.org/3/`) broke every relative link, because the normalized URL was what got fetched. Now the normalized URL is only the dedupe key and the original URL is fetched.
 

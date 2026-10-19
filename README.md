@@ -10,7 +10,7 @@
 |---|---|---|
 | Crawling | Scrape one page | Agent seeds 8 pages, then crawls *more* on its own when the evidence is weak |
 | Retrieval | Vector DB plus embeddings | BM25 over structure-aware, boilerplate-free chunks; confidence from query-term coverage. Zero model calls to index |
-| Trust | Hopes the model behaves | Every sentence must cite a source or the answer becomes "This site doesn't say." |
+| Trust | Hopes the model behaves | Code checks each sentence against the sources: supported ones get a citation, unsupported ones are dropped, and nothing supported means "This site doesn't say." |
 | Security | Ignores it | Prompt-injection stripping, sources fenced as data, escaped rendering, internal and login-walled URLs refused |
 | Cost | Someone's API bill | $0 at any traffic: static files plus an LLM on the visitor's GPU |
 | Quality | "Looks good to me" | CI runs the pipeline on live sites and fails the build if recall or abstention drops |
@@ -23,7 +23,7 @@ URL ─▶ guard ─▶ Jina Reader fetch ─▶ strip injections ─▶ chunk �
 question ─▶ BM25 top-4 ─▶ coverage ≥ 0.6? ── no ─▶ read the most relevant unvisited pages (≤2 hops) ─┐
                                │ yes                                                                  │
                                ▼ ◀────────────────────────────────────────────────────────────────────┘
-          Qwen2.5 via WebLLM (Web Worker) ─▶ citation check ─▶ retry once ─▶ answer or "This site doesn't say."
+          Qwen2.5 via WebLLM (Web Worker) ─▶ code attributes each sentence to a source, drops unsupported ones ─▶ answer or "This site doesn't say."
 ```
 
 Details: [ARCHITECTURE.md](ARCHITECTURE.md) · [SECURITY.md](SECURITY.md) · decisions in [docs/adr](docs/adr)

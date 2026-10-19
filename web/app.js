@@ -1,6 +1,6 @@
 import { createMap } from "./map.js";
 import { chat, loadLLM, MODEL } from "./models.js";
-import { buildMessages, render, verify, NOT_FOUND } from "./rag.js";
+import { attribute, buildMessages, render, NOT_FOUND, PROMPT_SOURCES } from "./rag.js";
 import { Site } from "./agent.js";
 import { checkQuestion } from "./guard.js";
 import { track } from "./telemetry.js";
@@ -105,17 +105,11 @@ $("askForm").addEventListener("submit", async e => {
     const msgs = buildMessages(q, ctx.sources, history);
     const show = t => { ans.classList.add("streaming"); body.innerHTML = render(t); };
     try {
-      let out = await chat(msgs, show);
-      let check = verify(out, ctx.sources.length);
-      if (!check.ok) { // one corrective retry, then abstain rather than show uncited claims
-        status("Double-checking citations"); ans.classList.remove("streaming");
-        out = await chat([...msgs, { role: "assistant", content: out }, { role: "user", content: "Rewrite: every sentence must end with a source number like [1]. If the sources don't say, reply exactly: " + NOT_FOUND }], show);
-        check = verify(out, ctx.sources.length);
-        if (!check.ok) out = NOT_FOUND;
-      }
+      // Code grounds the answer: cites each sentence's supporting source, drops what no source supports. No second model pass.
+      const { text: out, cited } = attribute(await chat(msgs, show), ctx.sources.slice(0, PROMPT_SOURCES));
       body.innerHTML = render(out);
       history.push({ role: "user", content: q }, { role: "assistant", content: out });
-      if (check.cited?.length) map.highlight(ctx.sources.filter(s => check.cited.includes(s.n)).map(s => s.url));
+      if (cited.length) map.highlight(ctx.sources.filter(s => cited.includes(s.n)).map(s => s.url));
     } catch (err) { // no WebGPU or model failed: still show the best passages
       body.innerHTML = `<p class="note">${escapeHtml(err.message)} Here's what the site says:</p>` + render(ctx.sources.slice(0, 2).map(s => `${s.text.slice(0, 280)}… [${s.n}]`).join("\n\n"));
     }
