@@ -11,7 +11,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Stamp file references with the commit, so browsers never mix cached old modules with new ones
-        run: sed -i -E "s#([\"'])(\./[A-Za-z0-9_.-]+\.(js|css))([\"'])#\1\2?v=${GITHUB_SHA::7}\4#g; s#(href|src)=\"([A-Za-z0-9_-]+\.(js|css))\"#\1=\"\2?v=${GITHUB_SHA::7}\"#g" web/*.js web/index.html && grep -ho '[a-z.]*\.js?v=[0-9a-f]*' web/*.js web/index.html | sort -u
+        run: |
+          sed -i -E "s#([\"'])(\./[A-Za-z0-9_.-]+\.(js|css))([\"'])#\1\2?v=${GITHUB_SHA::7}\4#g; s#(href|src)=\"([A-Za-z0-9_-]+\.(js|css))\"#\1=\"\2?v=${GITHUB_SHA::7}\"#g" web/*.js web/index.html
+          grep -ho '[a-z.]*\.js?v=[0-9a-f]*' web/*.js web/index.html | sort -u
+      - uses: actions/upload-pages-artifact@v3
         with: { path: web }
       - id: d
         uses: actions/deploy-pages@v4
