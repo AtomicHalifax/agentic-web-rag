@@ -96,3 +96,11 @@ test("fetchPage retries on 429", async () => {
   const f = async () => (++n < 3 ? { ok: false, status: 429 } : { ok: true, status: 200, json: async () => ({ data: { title: "x", content: "y".repeat(100), links: {} } }) });
   assert.ok(await fetchPage("https://ex.com", f, async () => {})); assert.equal(n, 3);
 });
+
+test("links are ranked by anchor text, rare words first", async () => {
+  const { rank } = await import("./agent.js");
+  const anchors = new Map([["https://d.org/library/venv", "venv — Creation of virtual environments"], ["https://d.org/library/os", "Miscellaneous operating system interfaces"],
+    ["https://d.org/tutorial/middleware", "Middleware"], ["https://d.org/tutorial/cors", "CORS (Cross-Origin Resource Sharing)"], ["https://d.org/advanced/middleware", "Advanced Middleware"]]);
+  assert.equal(rank([...anchors.keys()], "How do I create a virtual environment?", anchors)[0], "https://d.org/library/venv");
+  assert.equal(rank([...anchors.keys()], "How do I add CORS middleware?", anchors)[0], "https://d.org/tutorial/cors");
+});

@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.6.2 (2026-10-19)
+- The agent ranks unread links by URL path **and anchor text** (from Jina's link summary), weighting rare words higher, so "virtual environment" finds `/venv` and "CORS middleware" prefers `/cors`.
+
 ## 0.6.1 (2026-10-19)
 - Fixed by the now-working eval gate (recall was 0): coverage is scored on the 450-char passage, so overview pages listing topic names no longer look confident. The agent also reads an unvisited page whose URL names the topic better than its current sources. Jina 429s are retried with backoff.
 

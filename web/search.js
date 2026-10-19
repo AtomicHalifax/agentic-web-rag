@@ -1,7 +1,7 @@
 // Index in the browser: BM25 ranks, query-term coverage says how sure we are. No models, no network.
 export const tok = s => s.toLowerCase().match(/[a-z0-9]+/g) || [];
 const STOP = new Set("the and for are but not you all any can how what when where which who why with this that from your does into about have has was were will would should could there their them they its our out use using get".split(" "));
-const stem = t => (t.length > 3 ? t.replace(/(es|s)$/, "") : t); // ponytail: plural-only stemmer, enough for "costs"/"cost"
+const stem = t => (t.length > 4 && !t.endsWith("ss") ? t.replace(/(es|s)$/, "") : t); // ponytail: plural-only stemmer, enough for "costs"/"cost"
 export const terms = q => [...new Set(tok(q).filter(t => t.length > 2 && !STOP.has(t)).map(stem))];
 
 class BM25 {

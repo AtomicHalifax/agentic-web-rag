@@ -17,9 +17,11 @@ Everything runs in the visitor's browser, served as static files by GitHub Pages
 ## Agent policy (`web/agent.js`)
 
 Small LLMs plan unreliably, so the loop lives in code:
-- **Ingest:** read the homepage, rank its links by "useful" path words, and read until 8 good pages. Fetches in a batch run in parallel and each page is indexed as it lands. Translation paths (`/de`, `/pt-br`) are skipped. Chat unlocks after the first page.
-- **Retrieve:** run BM25 and take the top 4 sections. Coverage is measured on the 450-char passage. If it is below `CONFIDENT` (0.6), or an unread page's URL names the topic better than every source (`urlMatch`), re-rank unvisited links by overlap with the question, read 3 more pages, and search again, for at most 2 hops and 30 pages total.
+- **Ingest:** read the homepage, rank its links by "useful" words, and read until 8 good pages. Fetches in a batch run in parallel and each page is indexed as it lands. Translation paths (`/de`, `/pt-br`) are skipped. Chat unlocks after the first page.
+- **Retrieve:** run BM25 and take the top 4 sections. Coverage is measured on the 450-char passage. If it is below `CONFIDENT` (0.6), or an unread link names the topic better than every source, re-rank unvisited links and read the best, read 3 more pages, and search again, for at most 2 hops and 30 pages total.
 - **Generate:** the LLM writes the answer, and `rag.verify` requires a valid `[n]` on every claim. It gets one corrective retry, then abstains. Without WebGPU, the UI shows the top passages instead.
+
+**Link ranking** (`scoreLinks`): each link is scored by the question's key words found in its URL path **and its anchor text** ("Creation of virtual environments" → `/venv`), with each word weighted 1/(number of links mentioning it), so a rare word like "cors" beats a common one like "middleware".
 
 ## Chunking (`web/chunk.js`)
 

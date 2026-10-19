@@ -3,7 +3,7 @@
 // retrieve(): search -> if evidence is weak, read the most relevant unvisited pages -> search again -> stop
 import { checkUrl, norm, sanitize } from "./guard.js";
 import { boilerplate, chunkPage } from "./chunk.js";
-import { Index, terms } from "./search.js";
+import { Index, terms, tok } from "./search.js";
 
 export const SEED_PAGES = 8, MAX_PAGES = 30, HOP_PAGES = 3, MAX_HOPS = 2;
 // Share of the question's key words found in the best passage (0..1). Below this, read more pages. Tune with evals/.
@@ -26,30 +26,42 @@ export async function fetchPage(url, fetchFn = fetch, wait = ms => new Promise(r
     const { data } = await r.json();
     if (!data?.content || data.content.length < 80) return null;
     const [md, dropped] = sanitize(data.content);
-    const raw = Array.isArray(data.links) ? data.links.map(l => l[1] ?? l) : Object.values(data.links || {});
-    const links = [...new Set(raw.filter(l => typeof l === "string").map(l => { try { return norm(new URL(l, url).href); } catch { return null; } }))]
-      .filter(l => l && /^https?:/.test(l) && host(l) === host(url) && !SKIP.test(l) && (LANG.test(new URL(url).pathname) || !LANG.test(new URL(l).pathname)));
-    return { url, title: data.title || new URL(url).pathname, md, links, dropped };
+    // Jina gives {anchor text: url} (or [text, url] pairs). Keep the text: it describes the target far better than its URL.
+    const pairs = Array.isArray(data.links) ? data.links.map(l => (Array.isArray(l) ? l : ["", l])) : Object.entries(data.links || {});
+    const anchors = new Map();
+    for (const [text, l] of pairs) {
+      if (typeof l !== "string") continue;
+      let u; try { u = norm(new URL(l, url).href); } catch { continue; }
+      if (!/^https?:/.test(u) || host(u) !== host(url) || SKIP.test(u) || (!LANG.test(new URL(url).pathname) && LANG.test(new URL(u).pathname))) continue;
+      anchors.set(u, `${anchors.get(u) || ""} ${text}`.trim());
+    }
+    return { url, title: data.title || new URL(url).pathname, md, links: [...anchors.keys()], anchors, dropped };
   } catch { return null; }
 }
 
-/** How many of the question's key words a URL path mentions. Prefix match, so "parameter" hits "path-params". */
-export function urlMatch(u, words) {
-  const parts = new URL(u).pathname.toLowerCase().split(/[^a-z0-9]+/).filter(p => p.length > 2);
-  return words.filter(w => parts.some(p => p === w || (p.length > 3 && w.length > 3 && p.slice(0, 5) === w.slice(0, 5)))).length;
+/** Which of the question's key words a link mentions, in its URL path or its anchor text. Prefix match ("parameter" ~ "params"). */
+export function linkWords(u, words, anchors = new Map()) {
+  const parts = [...new URL(u).pathname.toLowerCase().split(/[^a-z0-9]+/), ...tok(anchors.get(u) || "")].filter(p => p.length > 2);
+  return words.filter(w => parts.some(p => p === w || (p.length > 3 && w.length > 3 && p.slice(0, 5) === w.slice(0, 5))));
 }
 
-/** Cheap relevance: question words in the URL path, shallower first. */
-export function rank(frontier, hint) {
-  const words = terms(hint);
-  const score = u => { const p = new URL(u).pathname; return [-urlMatch(u, words), p.split("/").length, p.length]; };
-  return [...frontier].sort((a, b) => { const x = score(a), y = score(b); return x[0] - y[0] || x[1] - y[1] || x[2] - y[2]; });
+/** Score links like a tiny search engine: each matched word counts 1/(how many links mention it), so rare words win. */
+export function scoreLinks(urls, words, anchors) {
+  const hit = new Map(urls.map(u => [u, linkWords(u, words, anchors)])), df = new Map();
+  for (const ws of hit.values()) for (const w of ws) df.set(w, (df.get(w) || 0) + 1);
+  return new Map([...hit].map(([u, ws]) => [u, ws.reduce((s, w) => s + 1 / df.get(w), 0)]));
+}
+
+/** Most relevant unread links first (shallower breaks ties). */
+export function rank(frontier, hint, anchors) {
+  const sc = scoreLinks(frontier, terms(hint), anchors), depth = u => new URL(u).pathname.split("/").length;
+  return [...frontier].sort((a, b) => sc.get(b) - sc.get(a) || depth(a) - depth(b) || a.length - b.length);
 }
 
 export class Site {
   constructor(root, _unused, fetchFn = fetch) {
     this.root = checkUrl(root); this.index = new Index(); this.fetchFn = fetchFn;
-    this.pages = new Map(); this.frontier = [this.root]; this.raw = []; this.drop = new Set();
+    this.pages = new Map(); this.anchors = new Map(); this.frontier = [this.root]; this.raw = []; this.drop = new Set();
   }
   bar() { return CONFIDENT; }
   okCount() { return [...this.pages.values()].filter(p => p.ok).length; }
@@ -70,6 +82,7 @@ export class Site {
         this.raw.push(page.md);
         if (this.raw.length === 3 || this.raw.length === 8) this.drop = boilerplate(this.raw); // learn nav/footer once there's evidence
         await this.index.add(chunkPage(page.md, u, page.title, this.drop));
+        for (const [l, t] of page.anchors) this.anchors.set(l, `${this.anchors.get(l) || ""} ${t}`.slice(0, 300));
         this.frontier.push(...page.links.filter(l => !this.pages.has(l) && !this.frontier.includes(l)));
         yield { type: "page", url: u, title: page.title, links: page.links.filter(l => this.pages.has(l)).slice(0, 8), chunks: this.index.chunks.length, injectionsRemoved: page.dropped };
       }
@@ -80,7 +93,7 @@ export class Site {
     yield { type: "session", root: this.root };
     yield { type: "step", text: "Reading the homepage" };
     yield* this._read(1);
-    this.frontier = rank(this.frontier, "about docs guide pricing features faq getting started");
+    this.frontier = rank(this.frontier, "about docs guide pricing features faq getting started", this.anchors);
     yield { type: "step", text: `Found ${this.frontier.length} links, reading the most useful` };
     while (this.okCount() < SEED_PAGES && this.frontier.length && this.pages.size < MAX_PAGES) yield* this._read(SEED_PAGES - this.okCount());
     const n = this.okCount();
@@ -92,11 +105,13 @@ export class Site {
     let hits = await this.index.search(q), hop = 0;
     yield { type: "search", hop, best: hits[0]?.score ?? null, urls: [...new Set(hits.map(h => h.chunk.url))] };
     const words = terms(q);
-    // Read more when the evidence is weak, OR when an unread page's URL names the topic better than anything we used.
+    // Read more when the evidence is weak, OR when an unread link (by URL + anchor text) names the topic better than our sources.
     const needMore = () => {
-      this.frontier = rank(this.frontier, q);
-      const best = Math.max(0, ...hits.map(h => urlMatch(h.chunk.url, words)));
-      return !hits.length || hits[0].score < this.bar() || (this.frontier.length > 0 && urlMatch(this.frontier[0], words) > best);
+      this.frontier = rank(this.frontier, q, this.anchors);
+      const used = [...new Set(hits.map(h => h.chunk.url))];
+      const sc = scoreLinks([...this.frontier, ...used], words, this.anchors);
+      const best = Math.max(0, ...used.map(u => sc.get(u)));
+      return !hits.length || hits[0].score < this.bar() || (this.frontier.length > 0 && sc.get(this.frontier[0]) > best);
     };
     while (this.frontier.length && hop < MAX_HOPS && this.pages.size < MAX_PAGES && needMore()) {
       hop++;
