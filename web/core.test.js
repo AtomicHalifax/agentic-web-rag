@@ -113,3 +113,13 @@ test("crawl stays inside the pasted path; http and https are one page", async ()
   assert.ok(!s.inScope("https://docs.python.org/3.4"));
   assert.ok(new Site("https://ex.com", null).inScope("https://ex.com/anything"));
 });
+
+test("fetches the exact URL that was pasted or linked (trailing slash kept), dedupes on the normalized key", async () => {
+  const asked = [];
+  const f = async url => { asked.push(url.replace("https://r.jina.ai/", "")); return { ok: true, status: 200, json: async () => ({ data: { title: "x", content: "y".repeat(100), links: { Tutorial: "https://d.org/3/tutorial/" } } }) }; };
+  const s = new Site("https://d.org/3/", null, f);
+  for await (const _ of s._read(1)) ;
+  for await (const _ of s._read(1)) ;
+  assert.deepEqual(asked, ["https://d.org/3/", "https://d.org/3/tutorial/"]);
+  assert.ok(s.pages.has("https://d.org/3/tutorial"));
+});

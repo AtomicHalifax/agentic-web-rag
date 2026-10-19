@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.6.5 (2026-10-19)
+- Fixed: pasting a URL with a trailing slash (`docs.python.org/3/`) broke every relative link, because the normalized URL was what got fetched. Now the normalized URL is only the dedupe key and the original URL is fetched.
+
 ## 0.6.4 (2026-10-19)
 - Evals replay recorded pages (`evals/snapshots/`, refreshed by the `record-evals` workflow). Live crawls from CI were rate-limited by Jina, so the gate measured Jina's availability instead of retrieval quality.
 

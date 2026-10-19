@@ -28,14 +28,15 @@ export async function fetchPage(url, fetchFn = fetch, wait = ms => new Promise(r
     const [md, dropped] = sanitize(data.content);
     // Jina gives {anchor text: url} (or [text, url] pairs). Keep the text: it describes the target far better than its URL.
     const pairs = Array.isArray(data.links) ? data.links.map(l => (Array.isArray(l) ? l : ["", l])) : Object.entries(data.links || {});
-    const anchors = new Map();
+    const anchors = new Map(), hrefs = new Map();
     for (const [text, l] of pairs) {
       if (typeof l !== "string") continue;
-      let u; try { u = norm(new URL(l, url).href); } catch { continue; }
+      let raw, u; try { raw = new URL(l, url); raw.hash = ""; u = norm(raw.href); } catch { continue; }
+      if (!hrefs.has(u)) hrefs.set(u, raw.href); // fetch the exact URL (trailing slash matters for relative links); dedupe on the key
       if (!/^https?:/.test(u) || host(u) !== host(url) || SKIP.test(u) || (!LANG.test(new URL(url).pathname) && LANG.test(new URL(u).pathname))) continue;
       anchors.set(u, `${anchors.get(u) || ""} ${text}`.trim());
     }
-    return { url, title: data.title || new URL(url).pathname, md, links: [...anchors.keys()], anchors, dropped };
+    return { url, title: data.title || new URL(url).pathname, md, links: [...anchors.keys()], anchors, hrefs, dropped };
   } catch { return null; }
 }
 
@@ -60,7 +61,7 @@ export function rank(frontier, hint, anchors) {
 
 export class Site {
   constructor(root, _unused, fetchFn = fetch) {
-    this.root = checkUrl(root); this.index = new Index(); this.fetchFn = fetchFn;
+    this.root = checkUrl(root); this.hrefs = new Map([[this.root, /^https?:\/\//i.test(root.trim()) ? root.trim() : "https://" + root.trim()]]); this.index = new Index(); this.fetchFn = fetchFn;
     this.pages = new Map(); this.anchors = new Map(); this.frontier = [this.root];
     // Stay inside the path you pasted: docs.python.org/3 must not wander into /2.7, /3.4… copies of the same docs.
     this.scope = new URL(this.root).pathname.replace(/\/(index\.html?)?$/, ""); this.raw = []; this.drop = new Set();
@@ -75,7 +76,7 @@ export class Site {
       const u = this.frontier.shift(); if (!this.pages.has(u) && !batch.includes(u)) batch.push(u);
     }
     // All fetches start at once; each page is indexed as soon as it lands.
-    const inflight = new Map(batch.map(u => [u, fetchPage(u, this.fetchFn).then(page => ({ u, page }))]));
+    const inflight = new Map(batch.map(u => [u, fetchPage(this.hrefs.get(u) || u, this.fetchFn).then(page => ({ u, page }))]));
     while (inflight.size) {
       const { u, page } = await Promise.race(inflight.values());
       inflight.delete(u);
@@ -86,6 +87,7 @@ export class Site {
         if (this.raw.length === 3 || this.raw.length === 8) this.drop = boilerplate(this.raw); // learn nav/footer once there's evidence
         await this.index.add(chunkPage(page.md, u, page.title, this.drop));
         for (const [l, t] of page.anchors) this.anchors.set(l, `${this.anchors.get(l) || ""} ${t}`.slice(0, 300));
+        for (const [l, h] of page.hrefs) if (!this.hrefs.has(l)) this.hrefs.set(l, h);
         this.frontier.push(...page.links.filter(l => this.inScope(l) && !this.pages.has(l) && !this.frontier.includes(l)));
         yield { type: "page", url: u, title: page.title, links: page.links.filter(l => this.pages.has(l)).slice(0, 8), chunks: this.index.chunks.length, injectionsRemoved: page.dropped };
       }
