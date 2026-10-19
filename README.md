@@ -52,7 +52,7 @@ The set is small. The next step is 30+ questions across more site types.
 ```bash
 make dev    # http://localhost:8000 (Chrome or Edge for WebGPU)
 make test   # unit tests, no network, no dependencies
-make eval   # live-site evals
+make eval   # evals on recorded pages (re-record: Actions → record-evals)
 ```
 
 ## Engineering notes
