@@ -1,5 +1,5 @@
 import { createMap } from "./map.js";
-import { chat, loadLLM, MODEL } from "./models.js";
+import { chat } from "./models.js";
 import { attribute, buildMessages, render, NOT_FOUND, PROMPT_SOURCES } from "./rag.js";
 import { Site } from "./agent.js";
 import { checkQuestion } from "./guard.js";
@@ -25,19 +25,6 @@ function onEvent(ev) {
   else if (ev.type === "error") throw new Error(ev.text);
 }
 
-// ---------- the LLM starts downloading the moment someone shows intent; crawling never waits for it ----------
-const name = MODEL.split("-q")[0];
-let warmed = false;
-const warmUp = () => {
-  if (warmed) return; warmed = true;
-  if (!navigator.gpu) { $("model").textContent = "No WebGPU here: answers show the best passages. Chrome or Edge on a laptop gets the AI."; return; }
-  $("model").innerHTML = `Loading ${name} on your device… <span class="bar"><i id="mbar" style="width:0"></i></span>`;
-  loadLLM(p => { const b = $("mbar"); if (b) b.style.width = `${Math.round(p * 100)}%`; })
-    .then(e => ($("model").textContent = e ? `${name} · runs on your device · no server, no key` : "Couldn't load the AI model: answers show the best passages."));
-};
-for (const ev of ["focus", "input"]) $("url").addEventListener(ev, warmUp, { once: true });
-for (const b of document.querySelectorAll(".examples button")) b.addEventListener("pointerenter", warmUp, { once: true });
-
 function unlockChat() {
   if (!$("q").disabled) return;
   $("hint").textContent = "Ask anything. I'll keep reading the site while you do.";
@@ -51,7 +38,6 @@ async function start(url) {
   try { s = new Site(url, null); } catch (e) { $("startErr").textContent = e.message; return; }
   document.body.dataset.view = "work"; $("work").hidden = false;
   $("sitePill").hidden = false; $("sitePill").textContent = s.root.replace(/^https?:\/\//, "");
-  warmUp();
   const t0 = performance.now();
   try {
     site = s;
@@ -101,7 +87,7 @@ $("askForm").addEventListener("submit", async e => {
     scrollDown();
 
     const t0 = performance.now();
-    status($("mbar") ? "Finishing the model download, then writing" : "Writing the answer");
+    status("Writing the answer");
     const msgs = buildMessages(q, ctx.sources, history);
     const show = t => { ans.classList.add("streaming"); body.innerHTML = render(t); };
     try {
@@ -110,7 +96,7 @@ $("askForm").addEventListener("submit", async e => {
       body.innerHTML = render(out);
       history.push({ role: "user", content: q }, { role: "assistant", content: out });
       if (cited.length) map.highlight(ctx.sources.filter(s => cited.includes(s.n)).map(s => s.url));
-    } catch (err) { // no WebGPU or model failed: still show the best passages
+    } catch (err) { // AI service down or rate-limited: still show the best passages
       body.innerHTML = `<p class="note">${escapeHtml(err.message)} Here's what the site says:</p>` + render(ctx.sources.slice(0, 2).map(s => `${s.text.slice(0, 280)}… [${s.n}]`).join("\n\n"));
     }
     ans.insertAdjacentHTML("beforeend", `<div class="trace">retrieve ${ctx.ms} ms · generate ${Math.round(performance.now() - t0)} ms · ${ctx.hops} hop(s) · top score ${ctx.sources[0]?.score ?? "n/a"}</div>`);

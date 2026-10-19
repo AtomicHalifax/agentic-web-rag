@@ -1,6 +1,6 @@
 # agentic-web-rag
 
-**Chat with any website.** Paste a link, and an agent crawls the site, maps it live, and answers with citations you can click. The AI runs **in your browser**: no server, no API key, no sign-up, $0.
+**Chat with any website.** Paste a link, and an agent crawls the site, maps it live, and answers with citations you can click. No server of ours, no API key, no sign-up, $0: retrieval runs in your browser, and a free keyless cloud LLM writes the answer.
 
 > Live demo: https://atomichalifax.github.io/agentic-web-rag  ·  Demo GIF: _coming soon_
 
@@ -12,7 +12,7 @@
 | Retrieval | Vector DB plus embeddings | BM25 over structure-aware, boilerplate-free chunks; confidence from query-term coverage. Zero model calls to index |
 | Trust | Hopes the model behaves | Code checks each sentence against the sources: supported ones get a citation, unsupported ones are dropped, and nothing supported means "This site doesn't say." |
 | Security | Ignores it | Prompt-injection stripping, sources fenced as data, escaped rendering, internal and login-walled URLs refused |
-| Cost | Someone's API bill | $0 at any traffic: static files plus an LLM on the visitor's GPU |
+| Cost | Someone's API bill | $0: static files on GitHub Pages plus a free keyless LLM endpoint |
 | Quality | "Looks good to me" | CI runs the pipeline on live sites and fails the build if recall or abstention drops |
 
 ## How it works
@@ -23,7 +23,7 @@ URL ─▶ guard ─▶ Jina Reader fetch ─▶ strip injections ─▶ chunk �
 question ─▶ BM25 top-4 ─▶ coverage ≥ 0.6? ── no ─▶ read the most relevant unvisited pages (≤2 hops) ─┐
                                │ yes                                                                  │
                                ▼ ◀────────────────────────────────────────────────────────────────────┘
-          Qwen2.5 via WebLLM (Web Worker) ─▶ code attributes each sentence to a source, drops unsupported ones ─▶ answer or "This site doesn't say."
+          gpt-oss-20b via Pollinations (streamed) ─▶ code attributes each sentence to a source, drops unsupported ones ─▶ answer or "This site doesn't say."
 ```
 
 Details: [ARCHITECTURE.md](ARCHITECTURE.md) · [SECURITY.md](SECURITY.md) · decisions in [docs/adr](docs/adr)
@@ -50,7 +50,7 @@ The set is small. The next step is 30+ questions across more site types.
 ## Run it
 
 ```bash
-make dev    # http://localhost:8000 (Chrome or Edge for WebGPU)
+make dev    # http://localhost:8000
 make test   # unit tests, no network, no dependencies
 make eval   # evals on recorded pages (re-record: Actions → record-evals)
 ```
@@ -63,7 +63,7 @@ make eval   # evals on recorded pages (re-record: Actions → record-evals)
 
 ## Known limits
 
-- **First visit:** downloads the model (about 1 GB on laptops, 400 MB on phones), then it's cached. No WebGPU (Firefox, many phones) means you get source passages instead of a written answer.
+- **Free AI service:** Pollinations is rate-limited (about 1 question per 15 s per visitor). On errors you get the best source passages instead of a written answer.
 - **Login walls:** X, Instagram, LinkedIn and similar sites are refused upfront.
 - **Keyword retrieval:** a question that shares no words with its answer can miss (see ADR 0005).
 

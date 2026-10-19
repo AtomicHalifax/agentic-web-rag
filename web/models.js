@@ -1,29 +1,23 @@
-// The only model: an LLM that runs in the visitor's browser (WebLLM on WebGPU) inside a Web Worker,
-// so the page never freezes. No server, no key. Weights download once, then come from the browser cache.
-const WEB_LLM = "https://cdn.jsdelivr.net/npm/@mlc-ai/web-llm@0.2/+esm";
-const small = (navigator.deviceMemory ?? 8) < 8 || matchMedia("(max-width: 720px)").matches;
-export const MODEL = small ? "Qwen2.5-0.5B-Instruct-q4f16_1-MLC" : "Qwen2.5-1.5B-Instruct-q4f16_1-MLC";
+// The answer model runs in the cloud via Pollinations: free, keyless, CORS-enabled, OpenAI-compatible streaming.
+// The visitor's device does no ML. If the service fails or rate-limits (~1 req / 15 s per visitor), the UI shows the best passages.
+const ENDPOINT = "https://text.pollinations.ai/openai";
+export const MODEL = "gpt-oss-20b via Pollinations";
 
-let engine = null;
-/** Starts the download once; later calls share it. onProgress(0..1). Resolves to null without WebGPU. */
-export function loadLLM(onProgress = () => {}) {
-  if (!navigator.gpu) return (engine ??= Promise.resolve(null));
-  return (engine ??= import(WEB_LLM).then(({ CreateWebWorkerMLCEngine }) =>
-    CreateWebWorkerMLCEngine(new Worker(new URL("./llm.worker.js", import.meta.url), { type: "module" }), MODEL,
-      { initProgressCallback: p => onProgress(p.progress) }))
-    // The first generation compiles GPU shaders (~20-30 s on integrated GPUs). Do it now, while the site is still crawling,
-    // so the user's first question doesn't pay for it.
-    .then(async e => { await e.chat.completions.create({ messages: [{ role: "user", content: "hi" }], max_tokens: 1 }); return e; })
-    .catch(e => { console.warn("LLM unavailable:", e); return null; }));
-}
-
-/** Streams an answer. onText gets the full text so far. Throws if the browser can't run the model. */
+/** Streams an answer. onText gets the full text so far. */
 export async function chat(messages, onText) {
-  const llm = await loadLLM();
-  if (!llm) throw new Error("This browser can't run the AI model (needs WebGPU: Chrome or Edge on a laptop).");
-  let out = "";
-  for await (const c of await llm.chat.completions.create({ messages, stream: true, temperature: 0.2, max_tokens: 160 })) {
-    out += c.choices[0]?.delta?.content || ""; onText(out);
+  const r = await fetch(ENDPOINT, { method: "POST", headers: { "content-type": "application/json" },
+    body: JSON.stringify({ model: "openai", messages, stream: true, temperature: 0.2, max_tokens: 400 }) });
+  if (!r.ok) throw new Error(r.status === 429 ? "The free AI service is busy. Wait a few seconds and ask again." : `AI service error (${r.status}).`);
+  const reader = r.body.pipeThrough(new TextDecoderStream()).getReader();
+  let buf = "", out = "";
+  for (;;) {
+    const { value, done } = await reader.read();
+    if (done) return out;
+    buf += value;
+    const lines = buf.split("\n"); buf = lines.pop();
+    for (const l of lines) {
+      if (!l.startsWith("data: ") || l === "data: [DONE]") continue;
+      try { const t = JSON.parse(l.slice(6)).choices?.[0]?.delta?.content; if (t) { out += t; onText(out); } } catch {} // skips reasoning deltas
+    }
   }
-  return out;
 }

@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.8.0 (2026-10-19)
+- The answer model moved to Pollinations (gpt-oss-20b, keyless, streamed; ADR 0006). WebLLM is removed: it still crashed Chrome on a real laptop. The visitor's device now does no ML, the first token arrives in about 1 s, and it's still GitHub Pages only.
+
 ## 0.7.2 (2026-10-19)
 - Deploys stamp every module, worker and stylesheet URL with the commit ID. Found live: GitHub Pages caching mixed old and new modules after a deploy, so stale code ran.
 

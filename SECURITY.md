@@ -12,6 +12,6 @@ Every website is untrusted input.
 | Model output | Hallucination | Each sentence must be supported by a source (≥ half its key words), or it's dropped; nothing supported means abstain. Phantom citations are stripped | `rag.attribute` |
 | Telemetry | Leaking user data | Numbers only, never question or page text | `telemetry.js` |
 
-**Trust note:** page URLs go to Jina Reader so it can fetch them. Questions and answers never leave the browser: the model runs locally, and there are no secrets to leak.
+**Trust note:** page URLs go to Jina Reader so it can fetch them. Questions and the top passages go to Pollinations to write the answer; we store nothing, and there are no secrets to leak.
 
 To report an issue, open a private security advisory on GitHub.
