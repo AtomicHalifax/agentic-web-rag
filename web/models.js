@@ -1,48 +1,26 @@
-// Retrieval models. In production they run on Cloudflare Workers AI behind our Worker (see worker/);
-// visitors' devices only draw the UI. loadModels() runs the same kind of models locally for offline dev/evals.
-import { API } from "./config.js";
+// The only model: an LLM that runs in the visitor's browser (WebLLM on WebGPU) inside a Web Worker,
+// so the page never freezes. No server, no key. Weights download once, then come from the browser cache.
+const WEB_LLM = "https://cdn.jsdelivr.net/npm/@mlc-ai/web-llm@0.2/+esm";
+const small = (navigator.deviceMemory ?? 8) < 8 || matchMedia("(max-width: 720px)").matches;
+export const MODEL = small ? "Qwen2.5-0.5B-Instruct-q4f16_1-MLC" : "Qwen2.5-1.5B-Instruct-q4f16_1-MLC";
 
-async function post(path, body) {
-  const r = await fetch(API + path, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
-  if (!r.ok) throw new Error((await r.json().catch(() => ({}))).error || `AI service error (${r.status})`);
-  return r;
+let engine = null;
+/** Starts the download once; later calls share it. onProgress(0..1). Resolves to null without WebGPU. */
+export function loadLLM(onProgress = () => {}) {
+  if (!navigator.gpu) return (engine ??= Promise.resolve(null));
+  return (engine ??= import(WEB_LLM).then(({ CreateWebWorkerMLCEngine }) =>
+    CreateWebWorkerMLCEngine(new Worker(new URL("./llm.worker.js", import.meta.url), { type: "module" }), MODEL,
+      { initProgressCallback: p => onProgress(p.progress) }))
+    .catch(e => { console.warn("LLM unavailable:", e); return null; }));
 }
 
-/** Same interface as loadModels(), backed by the Worker. Scores are 0..1. */
-export function remoteModels() {
-  return {
-    confident: 0.3, // bge-reranker sigmoid. Tune with evals.
-    rerank: async (query, docs) => (await (await post("/rerank", { query, docs: docs.slice(0, 32) })).json()).scores,
-  };
-}
-
-/** Streams the answer from the Worker's LLM. Calls onText with the full text so far; returns the final text. */
+/** Streams an answer. onText gets the full text so far. Throws if the browser can't run the model. */
 export async function chat(messages, onText) {
-  const reader = (await post("/chat", { messages })).body.pipeThrough(new TextDecoderStream()).getReader();
-  let buf = "", out = "";
-  for (;;) {
-    const { value, done } = await reader.read();
-    if (done) break;
-    buf += value;
-    const lines = buf.split("\n"); buf = lines.pop();
-    for (const l of lines) {
-      if (!l.startsWith("data: ") || l === "data: [DONE]") continue;
-      try { const t = JSON.parse(l.slice(6)).response; if (t) { out += t; onText(out); } } catch {}
-    }
+  const llm = await loadLLM();
+  if (!llm) throw new Error("This browser can't run the AI model (needs WebGPU: Chrome or Edge on a laptop).");
+  let out = "";
+  for await (const c of await llm.chat.completions.create({ messages, stream: true, temperature: 0.2, max_tokens: 300 })) {
+    out += c.choices[0]?.delta?.content || ""; onText(out);
   }
   return out;
-}
-
-/** Local transformers.js models (Node evals, offline dev). ms-marco logits, so a different confidence scale. */
-export async function loadModels(from) {
-  const T = await import(from);
-  const id = "Xenova/ms-marco-MiniLM-L-6-v2";
-  const [tk, ce] = await Promise.all([
-    T.AutoTokenizer.from_pretrained(id),
-    T.AutoModelForSequenceClassification.from_pretrained(id, { dtype: "q8" }),
-  ]);
-  return {
-    confident: 3,
-    rerank: async (q, docs) => (await ce(tk(new Array(docs.length).fill(q), { text_pair: docs, padding: true, truncation: true }))).logits.tolist().map(r => r[0]),
-  };
 }

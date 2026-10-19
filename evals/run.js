@@ -1,19 +1,17 @@
-// Retrieval evals: the exact browser pipeline, run in Node with real models and real crawls.
-//   npm i && node evals/run.js
+// Retrieval evals: the exact browser pipeline (crawl + chunk + BM25 + agent), run in Node on live sites.
+//   node evals/run.js
 // recall@4 = answerable questions whose expected page is in the top-4 sources
 // abstain  = unanswerable questions where the agent was NOT confident (UI says "This site doesn't say.")
 import { readFileSync } from "node:fs";
 import { Site } from "../web/agent.js";
-import { defaultModels } from "../web/search.js";
 
 const GATE = { "recall@4": 0.6, abstain: 0.5 };
 const rows = readFileSync(new URL("golden.jsonl", import.meta.url), "utf8").split("\n").filter(Boolean).map(JSON.parse);
-const models = await defaultModels();
 const sites = new Map(), out = [], lat = [];
 let hits = 0, nAns = 0, abst = 0, nUn = 0;
 
 for (const r of rows) {
-  if (!sites.has(r.site)) { const s = new Site(r.site, models); for await (const _ of s.ingest()); sites.set(r.site, s); }
+  if (!sites.has(r.site)) { const s = new Site(r.site); for await (const _ of s.ingest()); sites.set(r.site, s); }
   let ctx; for await (const e of sites.get(r.site).retrieve(r.q)) if (e.type === "context") ctx = e;
   lat.push(ctx.ms);
   let ok;

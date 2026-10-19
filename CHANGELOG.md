@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.6.0 (2026-10-19)
+- No server at all (ADR 0005). The Cloudflare Worker, its reranker and the deploy secrets are removed. One LLM (Qwen2.5 1.5B, or 0.5B on phones) runs in the browser via WebLLM in a Web Worker.
+- Agent confidence is now query-term coverage (with plural stemming) instead of a reranker score.
+- Zero dependencies: evals and tests run with plain Node. CI eval now fails the job properly (pipefail).
+
 ## 0.5.0 (2026-10-16)
 - Removed embeddings (ADR 0004). BM25 recalls the top 24 and the cross-encoder reranks them. Indexing makes zero model calls, so it's as fast as the downloads. Each question costs about 17 free-tier neurons, about 580 a day.
 

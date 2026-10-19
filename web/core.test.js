@@ -73,3 +73,10 @@ test("login-walled sites get a clear refusal", () => {
   for (const u of ["https://x.com", "https://www.instagram.com/foo", "linkedin.com/in/someone"])
     assert.throws(() => checkUrl(u), /login/, u);
 });
+
+test("confidence = share of the question's key words in the passage", async () => {
+  const ix = new Index();
+  await ix.add([{ text: "Pricing: the pro plan costs $20 per seat", parent: "P", path: "S › Pricing", url: "u" }]);
+  assert.equal((await ix.search("what does the pro plan cost per seat"))[0].score, 1);
+  assert.ok((await ix.search("pro plan refund policy"))[0].score < 0.6);
+});

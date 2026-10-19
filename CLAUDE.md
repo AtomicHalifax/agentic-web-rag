@@ -3,11 +3,10 @@
 Read ARCHITECTURE.md first, then docs/RUNBOOK.md when something is broken.
 
 ## Layout
-- `web/`: the app. **No build step**: plain ES modules served as-is by GitHub Pages. Models are called through `web/models.js`: the Worker in the browser, local transformers.js in Node evals.
-- `worker/`: the Cloudflare Worker (`/rerank`, `/chat` on Workers AI; no embeddings, see ADR 0004). Deployed by `deploy.yml`, which also writes its URL into `web/config.js`.
-- `web/*.test.js`: node:test, fake models and fetch, no network.
-- `evals/`: `golden.jsonl` plus `run.js` (the same modules, real models). CI gate: recall@4 ≥ 0.6, abstain ≥ 0.5.
-- The Worker is the only server. Keep it thin; anything bigger needs an ADR. Setup: docs/SETUP.md.
+- `web/`: the whole app. **No build step, no dependencies**: plain ES modules served as-is by GitHub Pages. The only model is the LLM in `web/models.js` + `llm.worker.js` (WebLLM, imported from jsDelivr).
+- `web/*.test.js`: node:test, fake fetch, no network.
+- `evals/`: `golden.jsonl` plus `run.js` (the same modules, live sites). CI gate: recall@4 ≥ 0.6, abstain ≥ 0.5.
+- There is no server. Adding one needs an ADR (see 0003 and 0005 for why it was removed).
 
 ## Commands
 `make dev` (localhost:8000) · `make test` · `make eval`
@@ -20,7 +19,6 @@ Read ARCHITECTURE.md first, then docs/RUNBOOK.md when something is broken.
 - **Git:** commit as the no-reply address `188597710+AtomicHalifax@users.noreply.github.com` (GitHub email privacy blocks other addresses).
 
 ## Gotchas
-- **Rerank score:** the scale depends on the model set. Worker bge-reranker is 0..1 (`confident: 0.3`, untuned); local ms-marco is a logit (`confident: 3`; real answers about +5..+10). Tune with evals.
-- **Free quota:** Workers AI allows 10k neurons/day (resets 00:00 UTC). When it's hit, `/chat` errors and the UI shows the top passages instead.
+- **Confidence:** `agent.CONFIDENT = 0.6` is the share of the question's key words in the best passage (`search.js`). Untuned; tune with evals.
 - **Jina Reader:** returns `{data:{title, content, links}}` with `Accept: application/json` and `X-With-Links-Summary: true`. Rate-limited without a key.
-- **Device load:** don't move models back into the browser; it crashed real laptops (ADR 0003).
+- **GPU load:** exactly one model in the browser. Three at once crashed Chrome (ADR 0003). Don't add an in-browser embedder or reranker without measuring.

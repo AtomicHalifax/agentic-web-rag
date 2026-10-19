@@ -1,12 +1,8 @@
-// Index in the browser: BM25 recall, then cross-encoder rerank (on Cloudflare in prod).
-// Models live in models.js: Cloudflare Workers AI in the browser, local transformers.js in Node evals.
-import { loadModels, remoteModels } from "./models.js";
+// Index in the browser: BM25 ranks, query-term coverage says how sure we are. No models, no network.
 export const tok = s => s.toLowerCase().match(/[a-z0-9]+/g) || [];
-
-let _models;
-export function defaultModels() {
-  return (_models ??= typeof window === "undefined" ? loadModels("@huggingface/transformers") : Promise.resolve(remoteModels()));
-}
+const STOP = new Set("the and for are but not you all any can how what when where which who why with this that from your does into about have has was were will would should could there their them they its our out use using get".split(" "));
+const stem = t => (t.length > 3 ? t.replace(/(es|s)$/, "") : t); // ponytail: plural-only stemmer, enough for "costs"/"cost"
+export const terms = q => [...new Set(tok(q).filter(t => t.length > 2 && !STOP.has(t)).map(stem))];
 
 class BM25 {
   constructor(docs, k1 = 1.5, b = 0.75) {
@@ -26,11 +22,8 @@ class BM25 {
   }
 }
 
-// No embeddings: BM25 recalls a wide pool for free, the cross-encoder reranks it semantically.
-// Indexing is now instant (no model calls while crawling); the model runs once per question.
-// ponytail: pure-synonym queries (no shared words) can miss; add dense recall back if evals show it.
 export class Index {
-  constructor(models) { this.m = models; this.chunks = []; this.bm25 = null; }
+  constructor() { this.chunks = []; this.bm25 = null; }
 
   async add(chunks) {
     if (!chunks.length) return;
@@ -38,17 +31,16 @@ export class Index {
     this.bm25 = new BM25(this.chunks.map(c => c.text)); // ponytail: full rebuild, fine below ~10k chunks
   }
 
-  /** [{chunk, score}] best first, one per parent section. */
-  async search(q, k = 4, pool = 24) {
+  /** [{chunk, score}] best first, one per parent section. score = share of the question's key words found (0..1). */
+  async search(q, k = 4) {
     if (!this.chunks.length) return [];
-    const cand = this.bm25.scores(q).map((s, i) => [s, i]).sort((a, b) => b[0] - a[0]).slice(0, pool).map(([, i]) => this.chunks[i]);
-    const scores = await this.m.rerank(q, cand.map(c => c.text));
-    const out = [], seen = new Set();
-    for (const i of scores.map((s, i) => i).sort((a, b) => scores[b] - scores[a])) {
-      if (seen.has(cand[i].parent)) continue;
-      seen.add(cand[i].parent); out.push({ chunk: cand[i], score: scores[i] });
-      if (out.length === k) break;
+    const want = terms(q), bm = this.bm25.scores(q), out = [], seen = new Set();
+    for (const i of bm.map((_, i) => i).sort((a, b) => bm[b] - bm[a])) {
+      if (!bm[i] || out.length === k) break;
+      const c = this.chunks[i]; if (seen.has(c.parent)) continue;
+      const have = new Set(tok(c.text + " " + c.parent).map(stem));
+      seen.add(c.parent); out.push({ chunk: c, score: want.length ? want.filter(t => have.has(t)).length / want.length : 0 });
     }
-    return out;
+    return out.sort((a, b) => b.score - a.score);
   }
 }

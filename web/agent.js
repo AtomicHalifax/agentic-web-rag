@@ -6,8 +6,8 @@ import { boilerplate, chunkPage } from "./chunk.js";
 import { Index } from "./search.js";
 
 export const SEED_PAGES = 8, MAX_PAGES = 30, HOP_PAGES = 3, MAX_HOPS = 2;
-// ms-marco logit. Measured on fastapi docs: real answers score +5..+10, near-misses -1..+1. Tune with evals/.
-export const CONFIDENT = 3;
+// Share of the question's key words found in the best passage (0..1). Below this, read more pages. Tune with evals/.
+export const CONFIDENT = 0.6;
 const LANG = /^\/[a-z]{2}(-[a-z]{2,4})?(\/|$)/i; // /de, /pt-br, /zh-hant: translations of pages we already have
 const READER = "https://r.jina.ai/";
 const SKIP = /\.(png|jpe?g|gif|svg|webp|pdf|zip|mp4|mp3|css|js|ico|xml|json)$|\/(login|signin|signup|cart|checkout|account)\b/i;
@@ -36,11 +36,11 @@ export function rank(frontier, hint) {
 }
 
 export class Site {
-  constructor(root, models, fetchFn = fetch) {
-    this.root = checkUrl(root); this.index = new Index(models); this.fetchFn = fetchFn;
+  constructor(root, _unused, fetchFn = fetch) {
+    this.root = checkUrl(root); this.index = new Index(); this.fetchFn = fetchFn;
     this.pages = new Map(); this.frontier = [this.root]; this.raw = []; this.drop = new Set();
   }
-  bar() { return this.index.m?.confident ?? CONFIDENT; }
+  bar() { return CONFIDENT; }
   okCount() { return [...this.pages.values()].filter(p => p.ok).length; }
 
   async *_read(n) {

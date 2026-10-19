@@ -1,10 +1,8 @@
 import { createMap } from "./map.js";
-import { chat } from "./models.js";
-import { API } from "./config.js";
+import { chat, loadLLM, MODEL } from "./models.js";
 import { buildMessages, render, verify, NOT_FOUND } from "./rag.js";
 import { Site } from "./agent.js";
 import { checkQuestion } from "./guard.js";
-import { defaultModels } from "./search.js";
 import { track } from "./telemetry.js";
 
 const $ = id => document.getElementById(id);
@@ -27,8 +25,16 @@ function onEvent(ev) {
   else if (ev.type === "error") throw new Error(ev.text);
 }
 
-// ---------- models run on Cloudflare; nothing to download ----------
-const warmUp = () => defaultModels();
+// ---------- the LLM starts downloading the moment someone shows intent; crawling never waits for it ----------
+const name = MODEL.split("-q")[0];
+let warmed = false;
+const warmUp = () => {
+  if (warmed) return; warmed = true;
+  if (!navigator.gpu) { $("model").textContent = "No WebGPU here: answers show the best passages. Chrome or Edge on a laptop gets the AI."; return; }
+  $("model").innerHTML = `Loading ${name} on your device… <span class="bar"><i id="mbar" style="width:0"></i></span>`;
+  loadLLM(p => { const b = $("mbar"); if (b) b.style.width = `${Math.round(p * 100)}%`; })
+    .then(e => ($("model").textContent = e ? `${name} · runs on your device · no server, no key` : "Couldn't load the AI model: answers show the best passages."));
+};
 for (const ev of ["focus", "input"]) $("url").addEventListener(ev, warmUp, { once: true });
 for (const b of document.querySelectorAll(".examples button")) b.addEventListener("pointerenter", warmUp, { once: true });
 
@@ -41,15 +47,14 @@ function unlockChat() {
 // ---------- start: chat unlocks after the homepage; the rest of the crawl keeps going in the background ----------
 async function start(url) {
   $("startErr").textContent = "";
-  if (!API) { $("startErr").textContent = "The AI backend isn't deployed yet. See docs/SETUP.md."; return; }
   let s;
   try { s = new Site(url, null); } catch (e) { $("startErr").textContent = e.message; return; }
   document.body.dataset.view = "work"; $("work").hidden = false;
   $("sitePill").hidden = false; $("sitePill").textContent = s.root.replace(/^https?:\/\//, "");
-  step("Waking up the search models", true);
+  warmUp();
   const t0 = performance.now();
   try {
-    s.index.m = await warmUp(); site = s;
+    site = s;
     for await (const ev of site.ingest()) { onEvent(ev); if (ev.type === "page") unlockChat(); }
     track("ingest", { pages: site.okCount(), chunks: site.index.chunks.length, ms: Math.round(performance.now() - t0) });
   } catch (e) {
@@ -96,7 +101,7 @@ $("askForm").addEventListener("submit", async e => {
     scrollDown();
 
     const t0 = performance.now();
-    status("Writing the answer");
+    status($("mbar") ? "Finishing the model download, then writing" : "Writing the answer");
     const msgs = buildMessages(q, ctx.sources, history);
     const show = t => { ans.classList.add("streaming"); body.innerHTML = render(t); };
     try {
@@ -111,7 +116,7 @@ $("askForm").addEventListener("submit", async e => {
       body.innerHTML = render(out);
       history.push({ role: "user", content: q }, { role: "assistant", content: out });
       if (check.cited?.length) map.highlight(ctx.sources.filter(s => check.cited.includes(s.n)).map(s => s.url));
-    } catch (err) { // e.g. daily free quota used up: still show the best passages
+    } catch (err) { // no WebGPU or model failed: still show the best passages
       body.innerHTML = `<p class="note">${escapeHtml(err.message)} Here's what the site says:</p>` + render(ctx.sources.slice(0, 2).map(s => `${s.text.slice(0, 280)}… [${s.n}]`).join("\n\n"));
     }
     ans.insertAdjacentHTML("beforeend", `<div class="trace">retrieve ${ctx.ms} ms · generate ${Math.round(performance.now() - t0)} ms · ${ctx.hops} hop(s) · top score ${ctx.sources[0]?.score ?? "n/a"}</div>`);
