@@ -30,12 +30,22 @@ Details: [ARCHITECTURE.md](ARCHITECTURE.md) · [SECURITY.md](SECURITY.md) · dec
 
 ## Results
 
-CI runs `evals/run.js` (the exact browser code, on live sites) and posts the table on every push.
+CI replays recorded pages through the exact browser code (`evals/run.js`) and fails the build below recall@4 0.6 or abstain 0.5.
 
-| config | recall@4 | abstain | p50 retrieve |
-|---|---|---|---|
-| BM25, seed pages only | _tbd_ | _tbd_ | _tbd_ |
-| + agentic re-crawl | _tbd_ | _tbd_ | _tbd_ |
+| golden set | recall@4 | abstain |
+|---|---|---|
+| 6 questions, 2 sites (Python docs, FastAPI), incl. 2 unanswerable | **1.00** | **1.00** |
+
+How it got there. Each step is a bug the eval caught on 19 Oct 2026:
+
+| fix | recall@4 |
+|---|---|
+| first honest run (an earlier CI step couldn't fail) | 0.00 |
+| coverage scored on the passage, not the whole section; read pages whose URL names the topic | 0.25 |
+| rank links by **anchor text** + URL, rare words weighted higher | 0.50 |
+| stay inside the pasted path; fetch the original URL (trailing slash broke relative links) | **1.00** |
+
+The set is small. The next step is 30+ questions across more site types.
 
 ## Run it
 
