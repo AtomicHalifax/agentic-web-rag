@@ -16,10 +16,14 @@ jobs:
         run: echo "cf=$([ -n "$T" ] && echo yes || echo no)" >> "$GITHUB_OUTPUT"
       - id: w
         if: steps.has.outputs.cf == 'yes'
-        uses: cloudflare/wrangler-action@v3
-        with:
-          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          workingDirectory: worker
+        working-directory: worker
+        env: { CLOUDFLARE_API_TOKEN: "${{ secrets.CLOUDFLARE_API_TOKEN }}" }
+        run: |
+          set -o pipefail
+          npx -y wrangler@4 deploy 2>&1 | tee out.txt || { echo '```' >> "$GITHUB_STEP_SUMMARY"; tail -40 out.txt >> "$GITHUB_STEP_SUMMARY"; echo '```' >> "$GITHUB_STEP_SUMMARY"; exit 1; }
+          url=$(grep -oE 'https://[a-z0-9.-]+\.workers\.dev' out.txt | head -1)
+          echo "deployment-url=$url" >> "$GITHUB_OUTPUT"
+          echo "Worker: $url" >> "$GITHUB_STEP_SUMMARY"
   pages:
     needs: worker
     runs-on: ubuntu-latest
