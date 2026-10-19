@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.7.1 (2026-10-19)
+- GPU warm-up (shader compile, about 27 s on the test laptop) now happens right after the model loads, during the crawl, instead of on the first question. Answers are capped at 160 tokens.
+
 ## 0.7.0 (2026-10-19)
 - Live test: the first word took about 30 s, and small models often skip `[n]`, which forced a second full pass. Now the prompt carries 3 sources × 700 chars, and `rag.attribute` grounds the answer in code (cite the supporting source, drop unsupported sentences, abstain if none). The retry is removed.
 

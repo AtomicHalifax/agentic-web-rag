@@ -11,6 +11,9 @@ export function loadLLM(onProgress = () => {}) {
   return (engine ??= import(WEB_LLM).then(({ CreateWebWorkerMLCEngine }) =>
     CreateWebWorkerMLCEngine(new Worker(new URL("./llm.worker.js", import.meta.url), { type: "module" }), MODEL,
       { initProgressCallback: p => onProgress(p.progress) }))
+    // The first generation compiles GPU shaders (~20-30 s on integrated GPUs). Do it now, while the site is still crawling,
+    // so the user's first question doesn't pay for it.
+    .then(async e => { await e.chat.completions.create({ messages: [{ role: "user", content: "hi" }], max_tokens: 1 }); return e; })
     .catch(e => { console.warn("LLM unavailable:", e); return null; }));
 }
 
@@ -19,7 +22,7 @@ export async function chat(messages, onText) {
   const llm = await loadLLM();
   if (!llm) throw new Error("This browser can't run the AI model (needs WebGPU: Chrome or Edge on a laptop).");
   let out = "";
-  for await (const c of await llm.chat.completions.create({ messages, stream: true, temperature: 0.2, max_tokens: 300 })) {
+  for await (const c of await llm.chat.completions.create({ messages, stream: true, temperature: 0.2, max_tokens: 160 })) {
     out += c.choices[0]?.delta?.content || ""; onText(out);
   }
   return out;
