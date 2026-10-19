@@ -37,7 +37,7 @@ ADRs [0001](docs/adr/0001-browser-inference.md) → [0002](docs/adr/0002-github-
 ## Testing
 
 - `web/*.test.js`: fake fetch, no network, run on every push.
-- `evals/run.js`: the same modules crawling live sites. Zero dependencies. It gates CI on recall@4 ≥ 0.6 and abstain ≥ 0.5.
+- `evals/run.js`: the same modules, replaying pages recorded once by the `record-evals` workflow (live crawls from CI got rate-limited, which made the gate flaky). Zero dependencies. It gates CI on recall@4 ≥ 0.6 and abstain ≥ 0.5.
 
 ## Observability
 

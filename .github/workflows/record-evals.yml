@@ -1,0 +1,20 @@
+name: record-evals
+# Run by hand when golden.jsonl or the crawl logic changes: crawls live sites once and commits the responses,
+# so the CI eval gate replays them offline (deterministic, no Jina rate limits).
+on: workflow_dispatch
+permissions: { contents: write }
+jobs:
+  record:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: "22" }
+      - run: rm -rf evals/snapshots && node evals/run.js --record | tee -a "$GITHUB_STEP_SUMMARY"
+      - run: node evals/run.js | tee -a "$GITHUB_STEP_SUMMARY"
+        continue-on-error: true
+      - run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898333+github-actions[bot]@users.noreply.github.com"
+          git add evals/snapshots
+          git commit -m "Record eval snapshots" && git push || echo "no changes"

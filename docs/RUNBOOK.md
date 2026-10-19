@@ -9,7 +9,7 @@
 | Answers always "This site doesn't say." | `CONFIDENT` too high, or bad chunks | `make eval`, read the coverage scores in the trace line, lower `agent.CONFIDENT` |
 | Slow answers | Integrated GPU, or the first answer waits for the model download | The trace line shows retrieve and generate ms. Expect about 10–30 tok/s on laptops |
 | Pages deploy failed | Pages source not set to GitHub Actions | Repo → Settings → Pages → Source: GitHub Actions, then re-run deploy |
-| Eval job fails | A live site moved pages, or quality dropped | Read the step summary table. Update `evals/golden.jsonl` if URLs changed |
+| Eval job fails | Quality dropped, or the snapshots are stale for new crawl logic | Read the step summary table. Re-run **Actions → record-evals**, then re-run CI |
 | No data in New Relic | Snippet missing, or an ad blocker | The Browser snippet must be in `web/index.html` `<head>`; test in a clean profile |
 
 Quick check:

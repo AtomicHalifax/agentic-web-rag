@@ -9,7 +9,7 @@ jobs:
         with: { node-version: "22" }
       - run: npm test
   eval:
-    # The same crawl + retrieval code the browser runs, on live sites. Fails the build if quality drops.
+    # The same crawl + retrieval code the browser runs, replayed from recorded pages (record-evals.yml). Fails the build if quality drops.
     needs: test
     runs-on: ubuntu-latest
     steps:

@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.6.4 (2026-10-19)
+- Evals replay recorded pages (`evals/snapshots/`, refreshed by the `record-evals` workflow). Live crawls from CI were rate-limited by Jina, so the gate measured Jina's availability instead of retrieval quality.
+
 ## 0.6.3 (2026-10-19)
 - The crawl stays inside the pasted path (`docs.python.org/3` no longer reads `/2.7`, `/3.4`… copies), and http and https count as one page. Found by the eval on Python docs.
 

@@ -5,7 +5,7 @@ Read ARCHITECTURE.md first, then docs/RUNBOOK.md when something is broken.
 ## Layout
 - `web/`: the whole app. **No build step, no dependencies**: plain ES modules served as-is by GitHub Pages. The only model is the LLM in `web/models.js` + `llm.worker.js` (WebLLM, imported from jsDelivr).
 - `web/*.test.js`: node:test, fake fetch, no network.
-- `evals/`: `golden.jsonl` plus `run.js` (the same modules, live sites). CI gate: recall@4 ≥ 0.6, abstain ≥ 0.5.
+- `evals/`: `golden.jsonl` plus `run.js` (the same modules). CI replays pages recorded in `evals/snapshots/`; re-record with the **record-evals** workflow when the questions or crawl logic change. Gate: recall@4 ≥ 0.6, abstain ≥ 0.5.
 - There is no server. Adding one needs an ADR (see 0003 and 0005 for why it was removed).
 
 ## Commands
