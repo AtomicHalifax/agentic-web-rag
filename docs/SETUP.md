@@ -5,7 +5,7 @@ The site runs on GitHub Pages. The AI runs on Cloudflare Workers AI (free tier: 
 ## 1. Cloudflare account
 1. Sign up at https://dash.cloudflare.com/sign-up (free).
 2. In the left menu, open **Workers & Pages** once. This creates your free `*.workers.dev` subdomain; pick any name when asked.
-3. Copy your **Account ID**. It's in the right sidebar of the Workers & Pages overview, or in the URL: `dash.cloudflare.com/<ACCOUNT_ID>/...`.
+3. Put your **Account ID** (from the URL `dash.cloudflare.com/<ACCOUNT_ID>/...`) in `worker/wrangler.toml` as `account_id`. It isn't secret.
 
 ## 2. API token for GitHub to deploy with
 1. Go to https://dash.cloudflare.com/profile/api-tokens and choose **Create Token**.
@@ -13,10 +13,9 @@ The site runs on GitHub Pages. The AI runs on Cloudflare Workers AI (free tier: 
 3. Add the permission **Account → Workers AI → Read** as well.
 4. Choose **Continue → Create Token**, then copy the token. It's shown only once, and it should never go in chat or code.
 
-## 3. Give both values to GitHub
+## 3. Give the token to GitHub
 Repo → **Settings → Secrets and variables → Actions → New repository secret**:
 - `CLOUDFLARE_API_TOKEN`: the token from step 2
-- `CLOUDFLARE_ACCOUNT_ID`: the ID from step 1
 
 ## 4. Deploy
 Repo → **Actions → deploy → Run workflow**. The `worker` job deploys the API, and the `pages` job points the site at it. Open https://atomichalifax.github.io/agentic-web-rag after about a minute.

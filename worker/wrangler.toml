@@ -1,5 +1,6 @@
 name = "agentic-web-rag"
 main = "index.js"
+account_id = "9beba4ddbd5761101183e66670f90f22"
 compatibility_date = "2026-10-01"
 
 [ai]
