@@ -3,7 +3,7 @@
 // retrieve(): search -> if evidence is weak, read the most relevant unvisited pages -> search again -> stop
 import { checkUrl, norm, sanitize } from "./guard.js";
 import { boilerplate, chunkPage } from "./chunk.js";
-import { Index } from "./search.js";
+import { Index, terms } from "./search.js";
 
 export const SEED_PAGES = 8, MAX_PAGES = 30, HOP_PAGES = 3, MAX_HOPS = 2;
 // Share of the question's key words found in the best passage (0..1). Below this, read more pages. Tune with evals/.
@@ -14,9 +14,14 @@ const SKIP = /\.(png|jpe?g|gif|svg|webp|pdf|zip|mp4|mp3|css|js|ico|xml|json)$|\/
 const host = u => new URL(u).hostname.replace(/^www\./, "");
 
 /** One page via Jina Reader -> {url, title, md, links, dropped} or null. */
-export async function fetchPage(url, fetchFn = fetch) {
+export async function fetchPage(url, fetchFn = fetch, wait = ms => new Promise(r => setTimeout(r, ms))) {
   try {
-    const r = await fetchFn(READER + url, { headers: { Accept: "application/json", "X-With-Links-Summary": "true", "X-Retain-Images": "none" } });
+    let r;
+    for (let tries = 0; ; tries++) { // Jina rate-limits keyless callers: back off on 429 instead of losing the page
+      r = await fetchFn(READER + url, { headers: { Accept: "application/json", "X-With-Links-Summary": "true", "X-Retain-Images": "none" } });
+      if (r.status !== 429 || tries === 3) break;
+      await wait(2000 * 2 ** tries);
+    }
     if (!r.ok) return null;
     const { data } = await r.json();
     if (!data?.content || data.content.length < 80) return null;
@@ -28,10 +33,16 @@ export async function fetchPage(url, fetchFn = fetch) {
   } catch { return null; }
 }
 
+/** How many of the question's key words a URL path mentions. Prefix match, so "parameter" hits "path-params". */
+export function urlMatch(u, words) {
+  const parts = new URL(u).pathname.toLowerCase().split(/[^a-z0-9]+/).filter(p => p.length > 2);
+  return words.filter(w => parts.some(p => p === w || (p.length > 3 && w.length > 3 && p.slice(0, 5) === w.slice(0, 5)))).length;
+}
+
 /** Cheap relevance: question words in the URL path, shallower first. */
 export function rank(frontier, hint) {
-  const words = new Set(hint.toLowerCase().match(/[a-z0-9]{3,}/g) || []);
-  const score = u => { const p = new URL(u).pathname.toLowerCase(); return [-[...words].filter(w => p.includes(w)).length, p.split("/").length, p.length]; };
+  const words = terms(hint);
+  const score = u => { const p = new URL(u).pathname; return [-urlMatch(u, words), p.split("/").length, p.length]; };
   return [...frontier].sort((a, b) => { const x = score(a), y = score(b); return x[0] - y[0] || x[1] - y[1] || x[2] - y[2]; });
 }
 
@@ -80,9 +91,15 @@ export class Site {
     const t0 = performance.now();
     let hits = await this.index.search(q), hop = 0;
     yield { type: "search", hop, best: hits[0]?.score ?? null, urls: [...new Set(hits.map(h => h.chunk.url))] };
-    while ((!hits.length || hits[0].score < this.bar()) && this.frontier.length && hop < MAX_HOPS && this.pages.size < MAX_PAGES) {
-      hop++;
+    const words = terms(q);
+    // Read more when the evidence is weak, OR when an unread page's URL names the topic better than anything we used.
+    const needMore = () => {
       this.frontier = rank(this.frontier, q);
+      const best = Math.max(0, ...hits.map(h => urlMatch(h.chunk.url, words)));
+      return !hits.length || hits[0].score < this.bar() || (this.frontier.length > 0 && urlMatch(this.frontier[0], words) > best);
+    };
+    while (this.frontier.length && hop < MAX_HOPS && this.pages.size < MAX_PAGES && needMore()) {
+      hop++;
       yield { type: "step", text: "Not enough on indexed pages, reading more" };
       yield* this._read(HOP_PAGES);
       hits = await this.index.search(q);

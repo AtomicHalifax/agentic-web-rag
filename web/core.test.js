@@ -80,3 +80,19 @@ test("confidence = share of the question's key words in the passage", async () =
   assert.equal((await ix.search("what does the pro plan cost per seat"))[0].score, 1);
   assert.ok((await ix.search("pro plan refund policy"))[0].score < 0.6);
 });
+
+test("agent reads a page whose URL names the topic, even when an overview page looks confident", async () => {
+  const site = { "https://ex.com": ["# Docs\n\nTopics covered here: path parameters, query parameters, CORS and much more.", ["https://ex.com/tutorial/path-params", "https://ex.com/blog"]],
+    "https://ex.com/tutorial/path-params": ["# Path Parameters\n\nDeclare a path parameter with the same syntax as format strings, like item_id in braces.", []] };
+  const fakeFetch = async url => { const [md, links] = site[url.replace("https://r.jina.ai/", "")] || []; return md ? { ok: true, json: async () => ({ data: { title: "T", content: md, links: Object.fromEntries(links.map(l => [l, l])) } }) } : { ok: false }; };
+  const s = new Site("https://ex.com", null, fakeFetch);
+  for await (const _ of s._read(1)) ;
+  let ctx; for await (const e of s.retrieve("How do I declare a path parameter?")) if (e.type === "context") ctx = e;
+  assert.ok(ctx.hops >= 1); assert.equal(ctx.sources[0].url, "https://ex.com/tutorial/path-params");
+});
+
+test("fetchPage retries on 429", async () => {
+  let n = 0;
+  const f = async () => (++n < 3 ? { ok: false, status: 429 } : { ok: true, status: 200, json: async () => ({ data: { title: "x", content: "y".repeat(100), links: {} } }) });
+  assert.ok(await fetchPage("https://ex.com", f, async () => {})); assert.equal(n, 3);
+});

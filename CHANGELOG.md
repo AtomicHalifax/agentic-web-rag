@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.6.1 (2026-10-19)
+- Fixed by the now-working eval gate (recall was 0): coverage is scored on the 450-char passage, so overview pages listing topic names no longer look confident. The agent also reads an unvisited page whose URL names the topic better than its current sources. Jina 429s are retried with backoff.
+
 ## 0.6.0 (2026-10-19)
 - No server at all (ADR 0005). The Cloudflare Worker, its reranker and the deploy secrets are removed. One LLM (Qwen2.5 1.5B, or 0.5B on phones) runs in the browser via WebLLM in a Web Worker.
 - Agent confidence is now query-term coverage (with plural stemming) instead of a reranker score.

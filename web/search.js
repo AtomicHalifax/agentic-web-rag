@@ -38,7 +38,7 @@ export class Index {
     for (const i of bm.map((_, i) => i).sort((a, b) => bm[b] - bm[a])) {
       if (!bm[i] || out.length === k) break;
       const c = this.chunks[i]; if (seen.has(c.parent)) continue;
-      const have = new Set(tok(c.text + " " + c.parent).map(stem));
+      const have = new Set(tok(c.text).map(stem)); // the small passage: overview pages that merely list topic names don't count
       seen.add(c.parent); out.push({ chunk: c, score: want.length ? want.filter(t => have.has(t)).length / want.length : 0 });
     }
     return out.sort((a, b) => b.score - a.score);
