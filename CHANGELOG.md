@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.7.2 (2026-10-19)
+- Deploys stamp every module, worker and stylesheet URL with the commit ID. Found live: GitHub Pages caching mixed old and new modules after a deploy, so stale code ran.
+
 ## 0.7.1 (2026-10-19)
 - GPU warm-up (shader compile, about 27 s on the test laptop) now happens right after the model loads, during the crawl, instead of on the first question. Answers are capped at 160 tokens.
 

@@ -10,7 +10,8 @@ jobs:
     environment: { name: github-pages, url: "${{ steps.d.outputs.page_url }}" }
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/upload-pages-artifact@v3
+      - name: Stamp file references with the commit, so browsers never mix cached old modules with new ones
+        run: sed -i -E "s#([\"'])(\./[A-Za-z0-9_.-]+\.(js|css))([\"'])#\1\2?v=${GITHUB_SHA::7}\4#g; s#(href|src)=\"([A-Za-z0-9_-]+\.(js|css))\"#\1=\"\2?v=${GITHUB_SHA::7}\"#g" web/*.js web/index.html && grep -ho '[a-z.]*\.js?v=[0-9a-f]*' web/*.js web/index.html | sort -u
         with: { path: web }
       - id: d
         uses: actions/deploy-pages@v4
