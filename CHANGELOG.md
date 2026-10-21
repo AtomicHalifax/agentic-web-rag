@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.8.3 (2026-10-21)
+- Temperature slider (0–1, default 0.2) next to the chat box, passed to the model.
+
 ## 0.8.2 (2026-10-21)
 - Deploy also mirrors the site to a free Hugging Face Static Space when the `HF_TOKEN` secret is set.
 

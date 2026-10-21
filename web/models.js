@@ -4,9 +4,9 @@ const ENDPOINT = "https://text.pollinations.ai/openai";
 export const MODEL = "gpt-oss-20b via Pollinations";
 
 /** Streams an answer. onText gets the full text so far. */
-export async function chat(messages, onText) {
+export async function chat(messages, onText, temperature = 0.2) {
   const r = await fetch(ENDPOINT, { method: "POST", headers: { "content-type": "application/json" },
-    body: JSON.stringify({ model: "openai", messages, stream: true, temperature: 0.2, max_tokens: 400 }) });
+    body: JSON.stringify({ model: "openai", messages, stream: true, temperature, max_tokens: 400 }) });
   if (!r.ok) throw new Error(r.status === 429 ? "The free AI service is busy. Wait a few seconds and ask again." : `AI service error (${r.status}).`);
   const reader = r.body.pipeThrough(new TextDecoderStream()).getReader();
   let buf = "", out = "";

@@ -92,7 +92,7 @@ $("askForm").addEventListener("submit", async e => {
     const show = t => { ans.classList.add("streaming"); body.innerHTML = render(t); };
     try {
       // Code grounds the answer: cites each sentence's supporting source, drops what no source supports. No second model pass.
-      const { text: out, cited } = attribute(await chat(msgs, show), ctx.sources.slice(0, PROMPT_SOURCES));
+      const { text: out, cited } = attribute(await chat(msgs, show, +$("temp").value), ctx.sources.slice(0, PROMPT_SOURCES));
       body.innerHTML = render(out);
       history.push({ role: "user", content: q }, { role: "assistant", content: out });
       if (cited.length) map.highlight(ctx.sources.filter(s => cited.includes(s.n)).map(s => s.url));
@@ -122,3 +122,5 @@ $("thread").addEventListener("click", e => {
 });
 $("drawerClose").addEventListener("click", () => ($("drawer").hidden = true));
 addEventListener("keydown", e => { if (e.key === "Escape") $("drawer").hidden = true; });
+
+$("temp").addEventListener("input", e => ($("tempv").value = e.target.value));
