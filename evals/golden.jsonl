@@ -1,6 +1,32 @@
 {"site": "https://docs.python.org/3/", "q": "How do I run several coroutines concurrently?", "expect_url": "asyncio", "answerable": true}
 {"site": "https://docs.python.org/3/", "q": "How do I create a virtual environment?", "expect_url": "venv", "answerable": true}
+{"site": "https://docs.python.org/3/", "q": "How do I read a CSV file?", "expect_url": "csv", "answerable": true}
+{"site": "https://docs.python.org/3/", "q": "How do I parse JSON?", "expect_url": "json", "answerable": true}
+{"site": "https://docs.python.org/3/", "q": "How do I get the current date and time?", "expect_url": "datetime", "answerable": true}
+{"site": "https://docs.python.org/3/", "q": "How do I handle exceptions with try and except?", "expect_url": "errors", "answerable": true}
+{"site": "https://docs.python.org/3/", "q": "How do I write unit tests?", "expect_url": "unittest", "answerable": true}
+{"site": "https://docs.python.org/3/", "q": "How do I run code in parallel with threads?", "expect_url": "thread", "answerable": true}
+{"site": "https://docs.python.org/3/", "q": "How do I define a dataclass?", "expect_url": "dataclasses", "answerable": true}
+{"site": "https://docs.python.org/3/", "q": "What is a list comprehension?", "expect_url": "datastructures", "answerable": true}
 {"site": "https://docs.python.org/3/", "q": "What is the price of a Python enterprise license?", "expect_url": null, "answerable": false}
+{"site": "https://docs.python.org/3/", "q": "What is the stock price of the Python Software Foundation?", "expect_url": null, "answerable": false}
 {"site": "https://fastapi.tiangolo.com", "q": "How do I declare a path parameter?", "expect_url": "path-params", "answerable": true}
 {"site": "https://fastapi.tiangolo.com", "q": "How do I add CORS middleware?", "expect_url": "cors", "answerable": true}
+{"site": "https://fastapi.tiangolo.com", "q": "How do I add query parameters?", "expect_url": "query-params", "answerable": true}
+{"site": "https://fastapi.tiangolo.com", "q": "How do I upload files?", "expect_url": "request-files", "answerable": true}
+{"site": "https://fastapi.tiangolo.com", "q": "How do I run background tasks?", "expect_url": "background-tasks", "answerable": true}
+{"site": "https://fastapi.tiangolo.com", "q": "How do I handle errors and raise HTTPException?", "expect_url": "handling-errors", "answerable": true}
+{"site": "https://fastapi.tiangolo.com", "q": "How do I write tests for my app?", "expect_url": "testing", "answerable": true}
+{"site": "https://fastapi.tiangolo.com", "q": "How do I deploy FastAPI with Docker?", "expect_url": "docker", "answerable": true}
+{"site": "https://fastapi.tiangolo.com", "q": "How do dependencies work?", "expect_url": "dependencies", "answerable": true}
+{"site": "https://fastapi.tiangolo.com", "q": "How do I set the response status code?", "expect_url": "response-status-code", "answerable": true}
 {"site": "https://fastapi.tiangolo.com", "q": "Who is the CEO of FastAPI Inc?", "expect_url": null, "answerable": false}
+{"site": "https://fastapi.tiangolo.com", "q": "What is FastAPI's annual revenue?", "expect_url": null, "answerable": false}
+{"site": "https://flask.palletsprojects.com/en/stable/", "q": "How do I render templates?", "expect_url": "templating", "answerable": true}
+{"site": "https://flask.palletsprojects.com/en/stable/", "q": "How do I handle file uploads?", "expect_url": "fileuploads", "answerable": true}
+{"site": "https://flask.palletsprojects.com/en/stable/", "q": "How do I configure the application?", "expect_url": "config", "answerable": true}
+{"site": "https://flask.palletsprojects.com/en/stable/", "q": "What are blueprints?", "expect_url": "blueprints", "answerable": true}
+{"site": "https://flask.palletsprojects.com/en/stable/", "q": "How do I test a Flask application?", "expect_url": "testing", "answerable": true}
+{"site": "https://flask.palletsprojects.com/en/stable/", "q": "How do I deploy to production?", "expect_url": "deploying", "answerable": true}
+{"site": "https://flask.palletsprojects.com/en/stable/", "q": "What is Flask's market share among startups?", "expect_url": null, "answerable": false}
+{"site": "https://flask.palletsprojects.com/en/stable/", "q": "How many employees does the Pallets company have?", "expect_url": null, "answerable": false}
