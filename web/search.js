@@ -23,15 +23,19 @@ class BM25 {
 }
 
 export class Index {
-  constructor() { this.chunks = []; this.bm25 = null; }
+  constructor() { this.chunks = []; this.bm25 = null; this.sdf = new Map(); }
 
   async add(chunks) {
     if (!chunks.length) return;
     this.chunks.push(...chunks);
     this.bm25 = new BM25(this.chunks.map(c => c.text)); // ponytail: full rebuild, fine below ~10k chunks
+    for (const c of chunks) for (const t of new Set(tok(c.text).map(stem))) this.sdf.set(t, (this.sdf.get(t) || 0) + 1);
   }
 
-  /** [{chunk, score}] best first, one per parent section. score = share of the question's key words found (0..1). */
+  /** Rarer words matter more: "stock" (never on the site) outweighs "python" (everywhere). */
+  idf(t) { const N = this.chunks.length, df = this.sdf.get(t) || 0; return Math.log(1 + (N - df + 0.5) / (df + 0.5)); }
+
+  /** [{chunk, score}] best first, one per parent section. score = IDF-weighted share of the question's key words found (0..1). */
   async search(q, k = 4) {
     if (!this.chunks.length) return [];
     const want = terms(q), bm = this.bm25.scores(q), out = [], seen = new Set();
@@ -39,7 +43,8 @@ export class Index {
       if (!bm[i] || out.length === k) break;
       const c = this.chunks[i]; if (seen.has(c.parent)) continue;
       const have = new Set(tok(c.text).map(stem)); // the small passage: overview pages that merely list topic names don't count
-      seen.add(c.parent); out.push({ chunk: c, score: want.length ? want.filter(t => have.has(t)).length / want.length : 0 });
+      const w = want.map(t => this.idf(t)), all = w.reduce((a, b) => a + b, 0);
+      seen.add(c.parent); out.push({ chunk: c, score: all ? want.reduce((s, t, i) => s + (have.has(t) ? w[i] : 0), 0) / all : 0 });
     }
     return out.sort((a, b) => b.score - a.score);
   }

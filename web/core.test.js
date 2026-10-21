@@ -123,3 +123,9 @@ test("fetches the exact URL that was pasted or linked (trailing slash kept), ded
   assert.deepEqual(asked, ["https://d.org/3/", "https://d.org/3/tutorial/"]);
   assert.ok(s.pages.has("https://d.org/3/tutorial"));
 });
+
+test("confidence weights rare words: site-wide words can't fake an answer", async () => {
+  const ix = new Index();
+  await ix.add(["Python Software Foundation runs Python.", "The Python Software Foundation hosts PyCon.", "Python docs by the Python Software Foundation."].map((t, i) => ({ text: t, parent: "p" + i, path: "", url: "u" + i })));
+  assert.ok((await ix.search("What is the stock price of the Python Software Foundation?"))[0].score < 0.6);
+});

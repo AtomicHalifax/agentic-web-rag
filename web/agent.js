@@ -5,7 +5,7 @@ import { checkUrl, norm, sanitize } from "./guard.js";
 import { boilerplate, chunkPage } from "./chunk.js";
 import { Index, terms, tok } from "./search.js";
 
-export const SEED_PAGES = 8, MAX_PAGES = 30, HOP_PAGES = 3, MAX_HOPS = 2;
+export const SEED_PAGES = 8, MAX_PAGES = 60, HOP_PAGES = 3, MAX_HOPS = 2; // ponytail: one budget per session; 30 ran out by question 7 in evals
 // Share of the question's key words found in the best passage (0..1). Below this, read more pages. Tune with evals/.
 export const CONFIDENT = 0.6;
 const LANG = /^\/[a-z]{2}(-[a-z]{2,4})?(\/|$)/i; // /de, /pt-br, /zh-hant: translations of pages we already have
