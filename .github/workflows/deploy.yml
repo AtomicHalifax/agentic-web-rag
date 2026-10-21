@@ -17,3 +17,25 @@ jobs:
         with: { path: web }
       - id: d
         uses: actions/deploy-pages@v4
+  hf-space:
+    # Mirrors the site to a free Static Space (huggingface.co/spaces/AtomicHalifax/agentic-web-rag). Needs repo secret HF_TOKEN (write).
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - id: has
+        env: { T: "${{ secrets.HF_TOKEN }}" }
+        run: echo "ok=$([ -n "$T" ] && echo yes || echo no)" >> "$GITHUB_OUTPUT"
+      - if: steps.has.outputs.ok == 'yes'
+        env: { HF_TOKEN: "${{ secrets.HF_TOKEN }}" }
+        run: |
+          sed -i -E "s#([\"'])(\./[A-Za-z0-9_.-]+\.(js|css))([\"'])#\1\2?v=${GITHUB_SHA::7}\4#g; s#(href|src)=\"([A-Za-z0-9_-]+\.(js|css))\"#\1=\"\2?v=${GITHUB_SHA::7}\"#g" web/*.js web/index.html
+          printf -- '---\ntitle: agentic-web-rag\nemoji: 🔎\ncolorFrom: blue\ncolorTo: gray\nsdk: static\napp_file: index.html\npinned: false\nshort_description: Chat with any website. Agentic RAG with citations.\n---\n\nSource: https://github.com/AtomicHalifax/agentic-web-rag\n' > web/README.md
+          pip install -q huggingface_hub
+          python - <<'PY'
+          from huggingface_hub import HfApi
+          api = HfApi()
+          repo = f"{api.whoami()['name']}/agentic-web-rag"
+          api.create_repo(repo, repo_type="space", space_sdk="static", exist_ok=True)
+          api.upload_folder(repo_id=repo, repo_type="space", folder_path="web", ignore_patterns=["*.test.js"], delete_patterns=["*"])
+          print("https://huggingface.co/spaces/" + repo)
+          PY

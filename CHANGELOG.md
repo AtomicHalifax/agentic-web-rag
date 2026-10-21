@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.8.2 (2026-10-21)
+- Deploy also mirrors the site to a free Hugging Face Static Space when the `HF_TOKEN` secret is set.
+
 ## 0.8.1 (2026-10-19)
 - Code blocks in answers are no longer annotated with a citation on every line.
 
