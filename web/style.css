@@ -107,3 +107,4 @@ body[data-view="work"] .hero { display: none; }
 .temp input { accent-color: var(--blue); width: 140px; }
 .temp output { font-family: "Geist Mono", monospace; min-width: 2ch; color: var(--ink-2); }
 .temp-hint { font-size: 12px; }
+.node.root.hot, .node.root.reading { color: #fff; }

@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.8.4 (2026-10-21)
+- Fixed: the root node went blank when highlighted (dark text on a dark pill).
+- Removed the Hugging Face mirror; GitHub Pages only.
+
 ## 0.8.3 (2026-10-21)
 - Temperature slider (0–1, default 0.2) next to the chat box, passed to the model.
 
