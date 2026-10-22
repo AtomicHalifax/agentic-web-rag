@@ -118,11 +118,10 @@ export class Site {
       const u = norm(raw);
       if (this.inScope(u) && !this.pages.has(u) && !this.frontier.includes(u) && !listed.includes(u)) { listed.push(u); if (!this.hrefs.has(u)) this.hrefs.set(u, raw); }
     }
+    if (listed.length) { this.frontier.push(...listed); yield { type: "step", text: `Sitemap lists ${listed.length} more pages` }; }
     this.frontier = rank(this.frontier, "about docs guide pricing features faq getting started", this.anchors);
     yield { type: "step", text: `Found ${this.frontier.length} links, reading the most useful` };
     while (this.okCount() < SEED_PAGES && this.frontier.length && this.pages.size < MAX_PAGES) yield* this._read(SEED_PAGES - this.okCount());
-    // Sitemap pages join only after seeding: the homepage's own links make better seeds, the sitemap serves later hops.
-    if (listed.length) { this.frontier.push(...listed.filter(u => !this.pages.has(u) && !this.frontier.includes(u))); yield { type: "step", text: `Sitemap lists ${listed.length} more pages` }; }
     const n = this.okCount();
     yield n ? { type: "done", pages: n, chunks: this.index.chunks.length } : { type: "error", text: "Couldn't read any pages on that site." };
   }
