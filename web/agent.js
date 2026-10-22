@@ -40,21 +40,6 @@ export async function fetchPage(url, fetchFn = fetch, wait = ms => new Promise(r
   } catch { return null; }
 }
 
-/** Tool: the site's sitemap.xml (via Jina) lists pages the link graph may never reach. [] if there is none. */
-export async function sitemap(root, scope, fetchFn = fetch) {
-  const origin = new URL(root).origin;
-  for (const where of [...new Set([origin + scope, origin])]) {
-    try {
-      const r = await fetchFn(READER + where + "/sitemap.xml", { headers: { Accept: "application/json", "X-Return-Format": "text" } });
-      if (!r.ok) continue;
-      const text = (await r.json())?.data?.content || "";
-      const raw = [...new Set(text.match(/https?:\/\/[^\s<>"']+/g) || [])].filter(u => { try { return host(u) === host(root) && !SKIP.test(u) && !u.endsWith(".xml"); } catch { return false; } });
-      if (raw.length) return raw.slice(0, 3000); // exact URLs (trailing slash matters). ponytail: cap; huge sites get the first 3000
-    } catch {}
-  }
-  return [];
-}
-
 /** Which of the question's key words a link mentions, in its URL path or its anchor text. Prefix match ("parameter" ~ "params"). */
 export function linkWords(u, words, anchors = new Map()) {
   const parts = [...new URL(u).pathname.toLowerCase().split(/[^a-z0-9]+/), ...tok(anchors.get(u) || "")].filter(p => p.length > 2);
@@ -113,12 +98,6 @@ export class Site {
     yield { type: "session", root: this.root };
     yield { type: "step", text: "Reading the homepage" };
     yield* this._read(1);
-    const listed = [];
-    for (const raw of await sitemap(this.root, this.scope, this.fetchFn)) {
-      const u = norm(raw);
-      if (this.inScope(u) && !this.pages.has(u) && !this.frontier.includes(u) && !listed.includes(u)) { listed.push(u); if (!this.hrefs.has(u)) this.hrefs.set(u, raw); }
-    }
-    if (listed.length) { this.frontier.push(...listed); yield { type: "step", text: `Sitemap lists ${listed.length} more pages` }; }
     this.frontier = rank(this.frontier, "about docs guide pricing features faq getting started", this.anchors);
     yield { type: "step", text: `Found ${this.frontier.length} links, reading the most useful` };
     while (this.okCount() < SEED_PAGES && this.frontier.length && this.pages.size < MAX_PAGES) yield* this._read(SEED_PAGES - this.okCount());
