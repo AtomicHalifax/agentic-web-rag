@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.9.1 (2026-10-22)
+- Tried and reverted: a sitemap.xml tool for the agent. Recall@4 dropped from 0.73 to 0.65 (and to 0.62 when the sitemap was used only after seeding): hundreds of similar candidate URLs swamped the link ranking. Kept as a measured negative result.
+
 ## 0.9.0 (2026-10-21)
 - Eval set grown from 6 to 32 questions across Python, FastAPI and Flask docs. Recall@4 was 0.54 at first; a page budget of 60 (from 30) and IDF-weighted confidence brought it to 0.73, with abstain at 1.00.
 - Agent context file renamed to the tool-neutral `AGENTS.md`.

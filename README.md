@@ -48,8 +48,9 @@ How it got there. Each row is a bug the eval caught:
 | stay inside the pasted path; fetch the original URL (trailing slash broke links) | 6 q | 1.00 | 1.00 |
 | grew the set to 32 questions | 32 q | 0.54 | 0.83 |
 | page budget 30 → 60 (it ran out by question 7); IDF-weighted confidence (common site words can't fake an answer) | 32 q | **0.73** | **1.00** |
+| *tried:* `sitemap.xml` as an extra agent tool. **Reverted:** hundreds of similar URLs swamped the link ranking | 32 q | 0.65 | 1.00 |
 
-**Still missing (7):** Python `datetime`, `errors`, `unittest`, `threading`; FastAPI `request-files`, `testing`; Flask `deploying`. In each case the page isn't linked from what's been read within 2 hops. Next fixes: read `sitemap.xml`, and search the site's own index pages.
+**Still missing (7):** Python `datetime`, `errors`, `unittest`, `threading`; FastAPI `request-files`, `testing`; Flask `deploying`. In each case the page isn't linked from what's been read within 2 hops. Reading `sitemap.xml` made it worse (see table). Next: let the LLM choose which links to read.
 
 ## Run it
 
