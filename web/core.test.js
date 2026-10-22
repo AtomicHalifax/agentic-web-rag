@@ -136,5 +136,5 @@ test("sitemap tool adds unlinked pages to the frontier", async () => {
     : { ok: true, status: 200, json: async () => ({ data: { title: "Home", content: "# Home\n\n" + "Welcome to the example documentation site for testing. ".repeat(3), links: {} } }) };
   const s = new Site("https://ex.com", null, f);
   for await (const _ of s.ingest()) ;
-  assert.ok(s.pages.has("https://ex.com/deep/hidden-page"));
+  assert.ok(s.frontier.includes("https://ex.com/deep/hidden-page"));
 });
