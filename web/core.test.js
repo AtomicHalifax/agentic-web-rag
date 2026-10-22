@@ -129,3 +129,12 @@ test("confidence weights rare words: site-wide words can't fake an answer", asyn
   await ix.add(["Python Software Foundation runs Python.", "The Python Software Foundation hosts PyCon.", "Python docs by the Python Software Foundation."].map((t, i) => ({ text: t, parent: "p" + i, path: "", url: "u" + i })));
   assert.ok((await ix.search("What is the stock price of the Python Software Foundation?"))[0].score < 0.6);
 });
+
+test("sitemap tool adds unlinked pages to the frontier", async () => {
+  const f = async url => url.endsWith("/sitemap.xml")
+    ? { ok: true, json: async () => ({ data: { content: "<urlset><url><loc>https://ex.com/deep/hidden-page/</loc></url><url><loc>https://other.com/x</loc></url></urlset>" } }) }
+    : { ok: true, status: 200, json: async () => ({ data: { title: "Home", content: "# Home\n\n" + "Welcome to the example documentation site for testing. ".repeat(3), links: {} } }) };
+  const s = new Site("https://ex.com", null, f);
+  for await (const _ of s.ingest()) ;
+  assert.ok(s.pages.has("https://ex.com/deep/hidden-page"));
+});
