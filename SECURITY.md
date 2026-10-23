@@ -5,7 +5,7 @@ Every website is untrusted input.
 | Boundary | Threat | Guard | Code |
 |---|---|---|---|
 | URL from user | Using the app to probe internal hosts | Only public http(s) on ports 80/443; localhost and private ranges refused. The fetch itself runs on Jina's infrastructure, never on ours | `guard.checkUrl` |
-| Crawling | Runaway crawls | 30-page cap, batches of at most 8 fetches, same-site links only, auth and cart paths skipped | `agent.js` |
+| Crawling | Runaway crawls | 60-page cap, batches of at most 8 fetches, same-site links only, auth and cart paths skipped | `agent.js` |
 | Page text | Prompt injection ("ignore previous instructions…"), zero-width tricks | Invisible characters stripped, instruction-like lines dropped and counted | `guard.sanitize` |
 | Prompt | Injection that survives sanitizing | Sources fenced in `<source>` tags; the system prompt says they are data | `rag.buildMessages` |
 | Model output | XSS via generated HTML | Escaped first; only `code`, bullets and citation buttons allowed | `rag.render` |
