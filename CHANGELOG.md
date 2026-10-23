@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.10.0 (2026-10-23)
+- Security hardening: Content-Security-Policy (own scripts only, network limited to Jina and Pollinations), no-referrer, escaped URLs in the page map, gitleaks secret scanning and CodeQL in a new `security` workflow, read-only CI tokens. A history scan found no secrets.
+
 ## 0.9.1 (2026-10-22)
 - Tried and reverted: a sitemap.xml tool for the agent. Recall@4 dropped from 0.73 to 0.65 (and to 0.62 when the sitemap was used only after seeding): hundreds of similar candidate URLs swamped the link ranking. Kept as a measured negative result.
 

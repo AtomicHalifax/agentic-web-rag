@@ -1,0 +1,23 @@
+name: security
+on:
+  push: { branches: [main] }
+  pull_request:
+  schedule: [{ cron: "0 3 * * 1" }]  # weekly, catches newly disclosed issues
+permissions: { contents: read, security-events: write }
+jobs:
+  secrets:
+    # Fails the build if any API key, token or private key lands in the code or its history.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - uses: gitleaks/gitleaks-action@v2
+        env: { GITHUB_TOKEN: "${{ secrets.GITHUB_TOKEN }}" }
+  codeql:
+    # Static analysis for XSS, injection and unsafe DOM use in the JS.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: github/codeql-action/init@v3
+        with: { languages: javascript, queries: security-extended }
+      - uses: github/codeql-action/analyze@v3

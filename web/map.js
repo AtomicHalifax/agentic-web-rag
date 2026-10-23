@@ -20,10 +20,11 @@ export function createMap(el, svg) {
     drawEdges();
   }
 
+  const attr = s => String(s).replace(/[&<>"']/g, c => `&#${c.charCodeAt(0)};`); // crawled URLs are untrusted
   function drawEdges() {
     svg.innerHTML = edges.map(([a, b]) => {
       const p = nodes.get(a), q = nodes.get(b);
-      return p && q ? `<line data-a="${a}" data-b="${b}" x1="${p.x}" y1="${p.y}" x2="${q.x}" y2="${q.y}"/>` : "";
+      return p && q ? `<line data-a="${attr(a)}" data-b="${attr(b)}" x1="${p.x}" y1="${p.y}" x2="${q.x}" y2="${q.y}"/>` : "";
     }).join("");
   }
 

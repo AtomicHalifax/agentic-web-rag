@@ -1,0 +1,3 @@
+[allowlist]
+description = "Recorded third-party pages used by the evals"
+paths = ["evals/snapshots/"]
