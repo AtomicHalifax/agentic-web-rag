@@ -66,6 +66,16 @@ make eval   # evals on recorded pages (re-record: Actions → record-evals)
 - **Six architecture decisions, each forced by a real constraint**, from a Python server to a keyless cloud LLM. The reasoning is in the [ADRs](docs/adr).
 - **Bugs found by live testing are fixed and recorded:** a main-thread freeze, a Chrome crash from three GPU models, translations eating the crawl budget, and duplicate pages from query strings. See the [CHANGELOG](CHANGELOG.md).
 
+## Lessons learned
+
+What I'd do differently, in the order it hurt:
+
+- **Fix the constraints before writing code.** "$0, no keys, no accounts, no load on the visitor's device, fast" only became clear midway, so the architecture changed six times (see the ADRs). One line of constraints on day one would have skipped most of that.
+- **Test on real hardware first.** In-browser models crashed an ordinary laptop. That should have been a one-hour spike, not something found after building on it.
+- **Make the eval able to fail before trusting it.** The first CI eval step could never fail, so early "passes" meant nothing. A gate is only real once you've seen it go red.
+- **Measure before keeping a feature.** The sitemap tool sounded obviously useful and made recall worse (0.73 → 0.65). It was reverted on the numbers, not on intuition.
+- **Deploys need cache-busting.** Browsers mixed old and new modules after a deploy until every file URL was stamped with the commit.
+
 ## Known limits
 
 - **Free AI service:** Pollinations is rate-limited (about 1 question per 15 s per visitor). On errors you get the best source passages instead of a written answer.
