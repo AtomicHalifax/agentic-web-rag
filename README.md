@@ -2,7 +2,7 @@
 
 **Chat with any website.** Paste a link, and an agent crawls the site, maps it live, and answers with citations you can click. No server of ours, no API key, no sign-up, $0: retrieval runs in your browser, and a free keyless cloud LLM writes the answer.
 
-> Live demo: https://atomichalifax.github.io/agentic-web-rag  ·  Demo GIF: _coming soon_
+> Live demo: https://atomichalifax.github.io/agentic-web-rag
 
 ## What's different
 
