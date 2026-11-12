@@ -83,7 +83,7 @@ body[data-view="work"] .hero { display: none; }
 .dots i:nth-child(2) { animation-delay: .15s } .dots i:nth-child(3) { animation-delay: .3s }
 @keyframes hop { 0%, 60%, 100% { transform: none; opacity: .4 } 30% { transform: translateY(-5px); opacity: 1 } }
 .body:empty { display: none; }
-.streaming .body > :last-child::after { content: ""; display: inline-block; width: 2px; height: 1.1em; margin-left: 2px; vertical-align: -2px; background: var(--blue); animation: blink 1s steps(2) infinite; }
+.a[data-phase="writing"] .body > :last-child::after { content: ""; display: inline-block; width: 2px; height: 1.1em; margin-left: 2px; vertical-align: -2px; background: var(--blue); animation: blink 1s steps(2) infinite; }
 @keyframes blink { 50% { opacity: 0 } }
 .sources .src { animation: rise .5s var(--spring) both; }
 .ask { border-radius: 18px; padding: 8px 8px 8px 20px; } .ask input { font-size: 16px; height: 44px; }
@@ -108,3 +108,11 @@ body[data-view="work"] .hero { display: none; }
 .temp output { font-family: "Geist Mono", monospace; min-width: 2ch; color: var(--ink-2); }
 .temp-hint { font-size: 12px; }
 .node.root.hot, .node.root.reading { color: #fff; }
+
+/* Answers that didn't come from the model get a marker and a one-click retry (state: .a[data-phase]). */
+.a[data-phase="fallback"], .a[data-phase="error"] { border-left: 3px solid #FF9F0A; padding-left: 12px; }
+.a[data-phase="fallback"]::before { content: "AI busy · showing site passages"; }
+.a[data-phase="error"]::before { content: "Something went wrong"; }
+.a[data-phase="fallback"]::before, .a[data-phase="error"]::before { display: inline-block; margin-bottom: 8px; font-size: 12px; font-weight: 500; color: #B25000; background: #FFF4E5; padding: 3px 10px; border-radius: 999px; }
+.retry { margin-top: 10px; font: 500 13px 'Geist', sans-serif; color: var(--blue-ink); background: var(--blue-soft); border: 0; padding: 6px 14px; border-radius: 999px; cursor: pointer; }
+body[data-crawl="reading"] .site-pill, body[data-crawl="ready"] .site-pill { color: var(--blue-ink); }

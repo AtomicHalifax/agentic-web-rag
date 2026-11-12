@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.10.1 (2026-11-12)
+- Fixed: a page could be fetched and indexed twice when the background crawl and a question's extra reads overlapped (duplicate sources, wasted rate-limited Jina calls, page budget overshoot). Pages now move through explicit states `fetching -> ok | failed` in `Site.pages`, claimed the moment they leave the frontier.
+- The UI's implicit state is now explicit: `<body data-crawl="reading|ready|done">` and each answer's `data-phase="searching|reading|writing|done|fallback|error"` replace the `busy` flag, the `streaming` class and scattered button toggles. The event order of `ingest()` / `retrieve()` is documented in `agent.js`.
+- UI: the site pill shows crawl progress ("reading · 5 pages" -> "34 pages"); fallback and error answers get a badge and an "Ask again" button.
+
 ## 0.10.0 (2026-10-23)
 - Security hardening: Content-Security-Policy (own scripts only, network limited to Jina and Pollinations), no-referrer, escaped URLs in the page map, gitleaks secret scanning and CodeQL in a new `security` workflow, read-only CI tokens. A history scan found no secrets.
 

@@ -13,6 +13,19 @@ const READER = "https://r.jina.ai/";
 const SKIP = /\.(png|jpe?g|gif|svg|webp|pdf|zip|mp4|mp3|css|js|ico|xml|json)$|\/(login|signin|signup|cart|checkout|account)\b/i;
 const host = u => new URL(u).hostname.replace(/^www\./, "");
 
+/**
+ * Page lifecycle. A URL is in exactly one state; `pages` holds every URL past "queued".
+ *   queued (in frontier) -> fetching -> ok | failed
+ * "fetching" is recorded the moment a URL leaves the frontier, so the background crawl and a question's hops
+ * (which run at the same time) never fetch or index the same page twice, and both count against MAX_PAGES.
+ * @typedef {"fetching" | "ok" | "failed"} PageState
+ *
+ * Events yielded by ingest() and retrieve(), in order:
+ *   ingest():   session -> step -> page* -> step -> page* -> (done | error)
+ *   retrieve(): search -> (step -> page* -> search)* -> context
+ */
+export const PAGE = Object.freeze({ FETCHING: "fetching", OK: "ok", FAILED: "failed" });
+
 /** One page via Jina Reader -> {url, title, md, links, dropped} or null. */
 export async function fetchPage(url, fetchFn = fetch, wait = ms => new Promise(r => setTimeout(r, ms))) {
   try {
@@ -68,12 +81,13 @@ export class Site {
   }
   bar() { return CONFIDENT; }
   inScope(u) { const p = new URL(u).pathname; return !this.scope || p === this.scope || p.startsWith(this.scope + "/"); }
-  okCount() { return [...this.pages.values()].filter(p => p.ok).length; }
+  okCount() { return [...this.pages.values()].filter(p => p.state === PAGE.OK).length; }
 
   async *_read(n) {
     const batch = [];
     while (batch.length < n && this.frontier.length && this.pages.size + batch.length < MAX_PAGES) {
-      const u = this.frontier.shift(); if (!this.pages.has(u) && !batch.includes(u)) batch.push(u);
+      const u = this.frontier.shift(); if (this.pages.has(u)) continue;
+      this.pages.set(u, { state: PAGE.FETCHING, title: u }); batch.push(u);
     }
     // All fetches start at once; each page is indexed as soon as it lands.
     const inflight = new Map(batch.map(u => [u, fetchPage(this.hrefs.get(u) || u, this.fetchFn).then(page => ({ u, page }))]));
@@ -81,7 +95,7 @@ export class Site {
       const { u, page } = await Promise.race(inflight.values());
       inflight.delete(u);
       {
-        this.pages.set(u, { ok: !!page, title: page?.title || u });
+        this.pages.set(u, { state: page ? PAGE.OK : PAGE.FAILED, title: page?.title || u });
         if (!page) continue;
         this.raw.push(page.md);
         if (this.raw.length === 3 || this.raw.length === 8) this.drop = boilerplate(this.raw); // learn nav/footer once there's evidence
@@ -89,7 +103,7 @@ export class Site {
         for (const [l, t] of page.anchors) this.anchors.set(l, `${this.anchors.get(l) || ""} ${t}`.slice(0, 300));
         for (const [l, h] of page.hrefs) if (!this.hrefs.has(l)) this.hrefs.set(l, h);
         this.frontier.push(...page.links.filter(l => this.inScope(l) && !this.pages.has(l) && !this.frontier.includes(l)));
-        yield { type: "page", url: u, title: page.title, links: page.links.filter(l => this.pages.has(l)).slice(0, 8), chunks: this.index.chunks.length, injectionsRemoved: page.dropped };
+        yield { type: "page", url: u, title: page.title, links: page.links.filter(l => this.pages.get(l)?.state === PAGE.OK).slice(0, 8), chunks: this.index.chunks.length, injectionsRemoved: page.dropped };
       }
     }
   }

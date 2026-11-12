@@ -129,3 +129,22 @@ test("confidence weights rare words: site-wide words can't fake an answer", asyn
   await ix.add(["Python Software Foundation runs Python.", "The Python Software Foundation hosts PyCon.", "Python docs by the Python Software Foundation."].map((t, i) => ({ text: t, parent: "p" + i, path: "", url: "u" + i })));
   assert.ok((await ix.search("What is the stock price of the Python Software Foundation?"))[0].score < 0.6);
 });
+
+test("a page being fetched is never queued or fetched again (crawl and question hops share one budget)", async () => {
+  // Home links to /a and /b; /a also links to /b. While /b is in flight, /a lands and must not re-queue it.
+  const site = { "https://ex.com": ["/a", "/b"], "https://ex.com/a": ["/b"], "https://ex.com/b": [] };
+  const asked = [];
+  const f = async url => {
+    const u = url.replace("https://r.jina.ai/", ""); asked.push(u);
+    if (u.endsWith("/b")) await new Promise(r => setTimeout(r, 20)); // /b is slow
+    return { ok: true, status: 200, json: async () => ({ data: { title: u, content: `Page ${u} `.repeat(20), links: Object.fromEntries((site[u] || []).map(l => [l, "https://ex.com" + l])) } }) };
+  };
+  const s = new Site("https://ex.com", null, f);
+  for await (const _ of s._read(1)) ;
+  const crawl = s._read(2);
+  await crawl.next(); // /a has landed; /b is still in flight
+  for await (const _ of s._read(2)) ; // a question hop starts now: it must not fetch /b again
+  for await (const _ of crawl) ;
+  assert.deepEqual(asked.sort(), ["https://ex.com", "https://ex.com/a", "https://ex.com/b"]);
+  assert.equal(s.okCount(), 3);
+});
