@@ -6,6 +6,7 @@ import { checkQuestion } from "./guard.js";
 import { track } from "./telemetry.js";
 
 const $ = id => document.getElementById(id);
+const send = () => $("askForm").querySelector("button");
 const map = createMap($("map"), $("edges"));
 let site = null, history = [];
 
@@ -25,10 +26,15 @@ function onEvent(ev) {
   else if (ev.type === "error") throw new Error(ev.text);
 }
 
-function unlockChat() {
-  if (!$("q").disabled) return;
-  $("hint").textContent = "Ask anything. I'll keep reading the site while you do.";
-  $("q").disabled = false; $("askForm").querySelector("button").disabled = false; $("q").focus();
+// Crawl lifecycle, on <body data-crawl>: reading -> ready (first page in, chat open, crawl continues) -> done.
+// A crawl that reads nothing goes back to the home view. CSS, tests and agents read the attribute; nothing else holds this state.
+function setCrawl(state) {
+  const was = document.body.dataset.crawl;
+  document.body.dataset.crawl = state;
+  if (was === "reading" && state !== "reading") { // first page landed: open the chat once
+    if ($("hint")) $("hint").textContent = "Ask anything. I'll keep reading the site while you do.";
+    $("q").disabled = false; send().disabled = false; $("q").focus();
+  }
 }
 
 // ---------- start: chat unlocks after the homepage; the rest of the crawl keeps going in the background ----------
@@ -36,16 +42,17 @@ async function start(url) {
   $("startErr").textContent = "";
   let s;
   try { s = new Site(url, null); } catch (e) { $("startErr").textContent = e.message; return; }
-  document.body.dataset.view = "work"; $("work").hidden = false;
+  document.body.dataset.view = "work"; $("work").hidden = false; setCrawl("reading");
   $("sitePill").hidden = false; $("sitePill").textContent = s.root.replace(/^https?:\/\//, "");
   const t0 = performance.now();
   try {
     site = s;
-    for await (const ev of site.ingest()) { onEvent(ev); if (ev.type === "page") unlockChat(); }
+    for await (const ev of site.ingest()) { onEvent(ev); if (ev.type === "page" && document.body.dataset.crawl === "reading") setCrawl("ready"); }
+    setCrawl("done");
     track("ingest", { pages: site.okCount(), chunks: site.index.chunks.length, ms: Math.round(performance.now() - t0) });
   } catch (e) {
-    if (site?.okCount()) step(e.message); // partial crawl still usable
-    else { document.body.dataset.view = "home"; $("work").hidden = true; $("startErr").textContent = e.message; }
+    if (site?.okCount()) { step(e.message); setCrawl("done"); } // partial crawl still usable
+    else { delete document.body.dataset.crawl; document.body.dataset.view = "home"; $("work").hidden = true; $("startErr").textContent = e.message; }
   }
 }
 
@@ -53,20 +60,28 @@ $("startForm").addEventListener("submit", e => { e.preventDefault(); start($("ur
 for (const b of document.querySelectorAll(".examples button")) b.addEventListener("click", () => { $("url").value = b.dataset.url; start(b.dataset.url); });
 
 // ---------- ask ----------
-// One answer at a time; the input stays usable so you can type the next question meanwhile.
-let busy = false;
-const send = () => $("askForm").querySelector("button");
+// Answer lifecycle, on each answer's data-phase: searching -> reading (more pages) -> writing -> done | fallback | error.
+// One answer at a time: Send is disabled while the latest answer is in a live phase; the input stays usable meanwhile.
+const LIVE = { searching: "Searching the site", reading: "Reading more pages", writing: "Writing the answer" };
+let current = null;
+const busy = () => current?.dataset.phase in LIVE;
+function setPhase(ans, phase) {
+  ans.dataset.phase = phase;
+  if (phase in LIVE) ans.querySelector(".status-text").textContent = LIVE[phase];
+  else ans.querySelector(".status")?.remove();
+  send().disabled = phase in LIVE;
+}
 const scrollDown = () => $("thread").scrollTo({ top: $("thread").scrollHeight, behavior: "smooth" });
 
 $("askForm").addEventListener("submit", async e => {
   e.preventDefault();
-  if (busy || !site) return;
+  if (busy() || !site) return;
   let q; try { q = checkQuestion($("q").value); } catch { return; }
-  busy = true; send().disabled = true; $("q").value = "";
+  $("q").value = "";
   const bubble = Object.assign(document.createElement("div"), { className: "q", textContent: q });
   const ans = Object.assign(document.createElement("div"), { className: "a" });
-  ans.innerHTML = `<div class="status"><span class="dots"><i></i><i></i><i></i></span><span class="status-text">Searching the site</span></div><div class="body"></div>`;
-  const status = t => (ans.querySelector(".status-text").textContent = t);
+  ans.innerHTML = `<div class="status"><span class="dots"><i></i><i></i><i></i></span><span class="status-text"></span></div><div class="body"></div>`;
+  current = ans; setPhase(ans, "searching");
   const body = ans.querySelector(".body");
   $("hint")?.remove(); $("thread").append(bubble, ans); scrollDown();
 
@@ -75,7 +90,7 @@ $("askForm").addEventListener("submit", async e => {
     for await (const ev of site.retrieve(q)) {
       if (ev.type === "context") ctx = ev; else onEvent(ev);
       if (ev.type === "search") { step(`Searched ${ev.urls.length} pages`, true); map.highlight(ev.urls); }
-      if (ev.type === "step") status("Reading more pages");
+      if (ev.type === "step") setPhase(ans, "reading");
     }
     step(ctx.hops ? `Read more pages (${ctx.hops} hop${ctx.hops > 1 ? "s" : ""})` : "Found it in the index");
     map.highlight(ctx.sources.map(s => s.url));
@@ -87,25 +102,26 @@ $("askForm").addEventListener("submit", async e => {
     scrollDown();
 
     const t0 = performance.now();
-    status("Writing the answer");
+    setPhase(ans, "writing");
     const msgs = buildMessages(q, ctx.sources, history);
-    const show = t => { ans.classList.add("streaming"); body.innerHTML = render(t); };
+    const show = t => (body.innerHTML = render(t));
     try {
       // Code grounds the answer: cites each sentence's supporting source, drops what no source supports. No second model pass.
       const { text: out, cited } = attribute(await chat(msgs, show, +$("temp").value), ctx.sources.slice(0, PROMPT_SOURCES));
       body.innerHTML = render(out);
       history.push({ role: "user", content: q }, { role: "assistant", content: out });
       if (cited.length) map.highlight(ctx.sources.filter(s => cited.includes(s.n)).map(s => s.url));
+      setPhase(ans, "done");
     } catch (err) { // AI service down or rate-limited: still show the best passages
       body.innerHTML = `<p class="note">${escapeHtml(err.message)} Here's what the site says:</p>` + render(ctx.sources.slice(0, 2).map(s => `${s.text.slice(0, 280)}… [${s.n}]`).join("\n\n"));
+      setPhase(ans, "fallback");
     }
     ans.insertAdjacentHTML("beforeend", `<div class="trace">retrieve ${ctx.ms} ms · generate ${Math.round(performance.now() - t0)} ms · ${ctx.hops} hop(s) · top score ${ctx.sources[0]?.score ?? "n/a"}</div>`);
     track("answer", { retrieveMs: ctx.ms, generateMs: Math.round(performance.now() - t0), hops: ctx.hops, confident: ctx.confident, abstained: body.textContent.startsWith(NOT_FOUND), qLen: q.length });
   } catch (err) {
     body.textContent = err.message;
+    setPhase(ans, "error");
   }
-  ans.querySelector(".status")?.remove(); ans.classList.remove("streaming");
-  busy = false; send().disabled = false;
   scrollDown();
 });
 

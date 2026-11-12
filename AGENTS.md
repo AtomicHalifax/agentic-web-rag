@@ -19,6 +19,7 @@ Read ARCHITECTURE.md first, then docs/RUNBOOK.md when something is broken.
 - **Git:** commit as the no-reply address `188597710+AtomicHalifax@users.noreply.github.com` (GitHub email privacy blocks other addresses).
 
 ## Gotchas
+- **State lives in one place each.** Page lifecycle: `Site.pages` (`PAGE.FETCHING|OK|FAILED`, see `agent.js`). Crawl: `body[data-crawl]`. Each answer: `.a[data-phase]`. Read these attributes in tests and browser checks instead of inferring from disabled buttons or classes.
 - **Confidence:** `agent.CONFIDENT = 0.6` is the share of the question's key words in the best passage (`search.js`). Untuned; tune with evals.
 - **Jina Reader:** returns `{data:{title, content, links}}` with `Accept: application/json` and `X-With-Links-Summary: true`. Rate-limited without a key.
 - **Device load:** no models in the browser. In-browser LLMs crashed real laptops (ADR 0003, 0006).
