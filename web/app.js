@@ -21,7 +21,7 @@ function step(text, live = false) {
 function onEvent(ev) {
   if (ev.type === "session") map.add(ev.root, ev.root, [], true);
   else if (ev.type === "step") step(ev.text, true);
-  else if (ev.type === "page") { map.add(ev.url, ev.title, ev.links); map.highlight([ev.url], "reading"); }
+  else if (ev.type === "page") { map.add(ev.url, ev.title, ev.links); map.highlight([ev.url], "reading"); pill(); }
   else if (ev.type === "done") { step(`${ev.pages} pages indexed`); map.highlight([], "reading"); }
   else if (ev.type === "error") throw new Error(ev.text);
 }
@@ -31,10 +31,18 @@ function onEvent(ev) {
 function setCrawl(state) {
   const was = document.body.dataset.crawl;
   document.body.dataset.crawl = state;
+  pill();
   if (was === "reading" && state !== "reading") { // first page landed: open the chat once
     if ($("hint")) $("hint").textContent = "Ask anything. I'll keep reading the site while you do.";
     $("q").disabled = false; send().disabled = false; $("q").focus();
   }
+}
+
+// Site pill shows crawl progress: "ex.com · reading · 5 pages" -> "ex.com · 34 pages".
+function pill() {
+  if (!site) return;
+  const n = site.okCount(), live = document.body.dataset.crawl !== "done";
+  $("sitePill").textContent = `${site.root.replace(/^https?:\/\//, "")} · ${live ? "reading · " : ""}${n} page${n === 1 ? "" : "s"}`;
 }
 
 // ---------- start: chat unlocks after the homepage; the rest of the crawl keeps going in the background ----------
@@ -43,10 +51,9 @@ async function start(url) {
   let s;
   try { s = new Site(url, null); } catch (e) { $("startErr").textContent = e.message; return; }
   document.body.dataset.view = "work"; $("work").hidden = false; setCrawl("reading");
-  $("sitePill").hidden = false; $("sitePill").textContent = s.root.replace(/^https?:\/\//, "");
+  site = s; $("sitePill").hidden = false; pill();
   const t0 = performance.now();
   try {
-    site = s;
     for await (const ev of site.ingest()) { onEvent(ev); if (ev.type === "page" && document.body.dataset.crawl === "reading") setCrawl("ready"); }
     setCrawl("done");
     track("ingest", { pages: site.okCount(), chunks: site.index.chunks.length, ms: Math.round(performance.now() - t0) });
@@ -69,6 +76,7 @@ function setPhase(ans, phase) {
   ans.dataset.phase = phase;
   if (phase in LIVE) ans.querySelector(".status-text").textContent = LIVE[phase];
   else ans.querySelector(".status")?.remove();
+  if (phase === "fallback" || phase === "error") ans.insertAdjacentHTML("beforeend", `<button class="retry" type="button">Ask again</button>`);
   send().disabled = phase in LIVE;
 }
 const scrollDown = () => $("thread").scrollTo({ top: $("thread").scrollHeight, behavior: "smooth" });
@@ -81,7 +89,7 @@ $("askForm").addEventListener("submit", async e => {
   const bubble = Object.assign(document.createElement("div"), { className: "q", textContent: q });
   const ans = Object.assign(document.createElement("div"), { className: "a" });
   ans.innerHTML = `<div class="status"><span class="dots"><i></i><i></i><i></i></span><span class="status-text"></span></div><div class="body"></div>`;
-  current = ans; setPhase(ans, "searching");
+  ans.dataset.q = q; current = ans; setPhase(ans, "searching");
   const body = ans.querySelector(".body");
   $("hint")?.remove(); $("thread").append(bubble, ans); scrollDown();
 
@@ -128,6 +136,8 @@ $("askForm").addEventListener("submit", async e => {
 // ---------- citations open the source, passage highlighted ----------
 const escapeHtml = s => s.replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 $("thread").addEventListener("click", e => {
+  const retry = e.target.closest(".retry");
+  if (retry) { if (busy()) return; $("q").value = retry.closest(".a").dataset.q; retry.remove(); $("askForm").requestSubmit(); return; }
   const b = e.target.closest("[data-n]"); if (!b) return;
   const s = JSON.parse(b.closest(".a").dataset.sources || "[]").find(x => x.n === +b.dataset.n); if (!s) return;
   $("drawerPath").textContent = s.path;
