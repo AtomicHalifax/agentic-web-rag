@@ -33,10 +33,12 @@ function setCrawl(state) {
   document.body.dataset.crawl = state;
   pill();
   if (was === "reading" && state !== "reading") { // first page landed: open the chat once
-    if ($("hint")) $("hint").textContent = "Ask anything. I'll keep reading the site while you do.";
+    if ($("hint")) $("hint").innerHTML = `Ask anything. I'll keep reading the site while you do.<span class="starters">${STARTERS.map(t => `<button type="button" class="starter">${t}</button>`).join("")}</span>`;
     $("q").disabled = false; send().disabled = false; $("q").focus();
   }
 }
+
+const STARTERS = ["What is this site about?", "What are the main topics?"];
 
 // Site pill shows crawl progress: "ex.com · reading · 5 pages" -> "ex.com · 34 pages".
 function pill() {
@@ -119,6 +121,7 @@ $("askForm").addEventListener("submit", async e => {
       body.innerHTML = render(out);
       history.push({ role: "user", content: q }, { role: "assistant", content: out });
       if (cited.length) map.highlight(ctx.sources.filter(s => cited.includes(s.n)).map(s => s.url));
+      for (const b of ans.querySelectorAll(".src")) b.classList.toggle("uncited", !cited.includes(+b.dataset.n));
       setPhase(ans, "done");
     } catch (err) { // AI service down or rate-limited: still show the best passages
       body.innerHTML = `<p class="note">${escapeHtml(err.message)} Here's what the site says:</p>` + render(ctx.sources.slice(0, 2).map(s => `${s.text.slice(0, 280)}… [${s.n}]`).join("\n\n"));
@@ -136,6 +139,8 @@ $("askForm").addEventListener("submit", async e => {
 // ---------- citations open the source, passage highlighted ----------
 const escapeHtml = s => s.replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 $("thread").addEventListener("click", e => {
+  const starter = e.target.closest(".starter");
+  if (starter) { $("q").value = starter.textContent; $("askForm").requestSubmit(); return; }
   const retry = e.target.closest(".retry");
   if (retry) { if (busy()) return; $("q").value = retry.closest(".a").dataset.q; retry.remove(); $("askForm").requestSubmit(); return; }
   const b = e.target.closest("[data-n]"); if (!b) return;
