@@ -4,7 +4,7 @@ export function createMap(el, svg) {
   let edges = [];
 
   function layout(iter = 80) {
-    const W = el.clientWidth, H = el.clientHeight - 40, all = [...nodes.values()];
+    const W = el.clientWidth, H = el.clientHeight - 40, all = [...nodes.values()], mx = Math.min(90, W * 0.15); // edge margin shrinks on phones
     for (let t = 0; t < iter; t++) {
       for (const a of all) {
         let fx = (W / 2 - a.x) * 0.01, fy = (H / 2 - a.y) * 0.01;
@@ -13,7 +13,7 @@ export function createMap(el, svg) {
           fx += (dx / d2) * 2200; fy += (dy / d2) * 2200;
         }
         for (const l of a.links) { const b = nodes.get(l); if (b) { fx += (b.x - a.x) * 0.004; fy += (b.y - a.y) * 0.004; } }
-        if (!a.root) { a.x = Math.max(90, Math.min(W - 90, a.x + fx)); a.y = Math.max(30, Math.min(H - 20, a.y + fy)); }
+        if (!a.root) { a.x = Math.max(mx, Math.min(W - mx, a.x + fx)); a.y = Math.max(30, Math.min(H - 20, a.y + fy)); }
       }
     }
     for (const n of all) n.el.style.transform = `translate(${n.x - n.el.offsetWidth / 2}px, ${n.y - n.el.offsetHeight / 2}px)`;

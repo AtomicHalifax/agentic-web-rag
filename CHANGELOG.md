@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.10.2 (2026-11-14)
+- Fixed: the empty chat card showed on the home page (`.work`'s `display` beat the `hidden` attribute).
+- UI: starter questions in the empty chat; uncited sources fade once the answer is in; on phones the step log is one line and map nodes are smaller with a width-relative edge margin, so they stop overlapping.
+
 ## 0.10.1 (2026-11-12)
 - Fixed: a page could be fetched and indexed twice when the background crawl and a question's extra reads overlapped (duplicate sources, wasted rate-limited Jina calls, page budget overshoot). Pages now move through explicit states `fetching -> ok | failed` in `Site.pages`, claimed the moment they leave the frontier.
 - The UI's implicit state is now explicit: `<body data-crawl="reading|ready|done">` and each answer's `data-phase="searching|reading|writing|done|fallback|error"` replace the `busy` flag, the `streaming` class and scattered button toggles. The event order of `ingest()` / `retrieve()` is documented in `agent.js`.
